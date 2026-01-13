@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-unwrappy is a Python library providing Rust-inspired `Result` and `Option` types for safe, expressive error handling without exceptions.
+unwrappy is a Python library providing Rust-inspired `Result` and `Option` types for safe, expressive error handling with errors as values.
 
 ## Development Commands
 

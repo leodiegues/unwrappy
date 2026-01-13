@@ -1,7 +1,7 @@
 [project]
 name = "unwrappy"
 version = "0.0.1"
-description = "Yet another Rust-inspired Result and Option ergonomics brought to Python, enabling safe, expressive error handling without exceptions."
+description = "Yet another Rust-inspired Result and Option ergonomics brought to Python, enabling safe, expressive error handling with errors as values."
 readme = "README.md"
 authors = [
     { name = "Leonardo Diegues", email = "leo@diegues.dev" }
