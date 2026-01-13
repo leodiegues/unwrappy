@@ -11,32 +11,123 @@ unwrappy brings Rust's `Result` type to Python with these principles:
 3. **Functional composition**: Rich combinator API for transformation chains
 4. **Async ergonomics**: LazyResult solves the "async sandwich" problem
 
-## Type Hierarchy
+## Design Evolution
+
+### Original Design: ABC Pattern (v0.0.1-initial)
+
+The first implementation used an Abstract Base Class pattern:
+
+```python
+class Result(ABC, Generic[T, E]):
+    @abstractmethod
+    def is_ok(self) -> bool: ...
+    @abstractmethod
+    def map(self, fn: Callable[[T], U]) -> Result[U, E]: ...
+    # ... shared interface
+
+class Ok(Result[T, E]):
+    def is_ok(self) -> bool: return True
+
+class Err(Result[T, E]):
+    def is_err(self) -> bool: return True
+```
+
+**Rationale:**
+- Clean inheritance - shared methods defined once on ABC
+- Familiar OOP pattern
+- `isinstance(x, Result)` works naturally
+
+### The Type Inference Problem
+
+Running `pyright` revealed **295 type errors**. The root cause:
+
+```python
+ok = Ok(42)
+# Inferred type: Ok[int, Unknown]
+#                      ^^^^^^^
+# The E parameter has no source, so it becomes Unknown
+```
+
+With dual type parameters `Ok[T, E]`, creating `Ok(42)` gives the type checker
+no information about `E`. This cascaded into:
+- Every Ok/Err creation inferred `Unknown` for the unused parameter
+- Type narrowing didn't work properly
+- Tests required excessive type annotations
+
+We initially tried suppressing these with `# pyright: ignore` comments and
+relaxed configuration, but this was "fooling pyright" rather than fixing the
+underlying design flaw.
+
+### Discovery: rustedpy's Approach
+
+Researching how [rustedpy/result](https://github.com/rustedpy/result) handles
+this revealed a fundamentally different approach:
+
+```python
+# rustedpy pattern
+class Ok(Generic[T]): ...     # Only T
+class Err(Generic[E]): ...    # Only E
+Result = Ok[T] | Err[E]       # Type alias, not ABC
+```
+
+With single type parameters:
+```python
+ok = Ok(42)
+# Inferred type: Ok[int]  ✓ Precise!
+
+err = Err("failed")
+# Inferred type: Err[str]  ✓ Precise!
+```
+
+### Decision: Adopt rustedpy Pattern
+
+The ABC pattern, while elegant from an OOP perspective, fundamentally conflicts
+with Python's type system for this use case. The type alias pattern provides:
+
+- **Precise inference**: `Ok(42)` → `Ok[int]`, not `Ok[int, Unknown]`
+- **Better narrowing**: Type checkers can narrow union types effectively
+- **Zero pyright errors**: The codebase now passes strict type checking
+- **Proven approach**: Battle-tested in rustedpy/result
+
+**Trade-off accepted:** Methods are duplicated in Ok and Err classes rather
+than shared via ABC, but the type safety benefits far outweigh the duplication.
+
+## Type System
 
 ```
-Result[T, E] (ABC)
-├── Ok[T, E]   - Success variant
-└── Err[T, E]  - Error variant
+Ok[T]    - Success variant (single type parameter)
+Err[E]   - Error variant (single type parameter)
+Result[T, E] = Ok[T] | Err[E]  - Type alias (union)
 
 LazyResult[T, E] - Deferred execution wrapper
 ```
 
 ## Key Architectural Decisions
 
-### 1. Abstract Base Class Pattern
+### 1. Type Alias Pattern (Union Types)
 
-Result is an ABC with Ok and Err as concrete subclasses:
+Result is a type alias for the union of Ok and Err:
 
 ```python
-class Result(ABC, Generic[T, E]): ...
-class Ok(Result[T, E]): ...
-class Err(Result[T, E]): ...
+class Ok(Generic[T]): ...
+class Err(Generic[E]): ...
+Result: TypeAlias = Ok[T] | Err[E]
 ```
 
-**Why?**
-- Enables exhaustive pattern matching
-- Each variant has its own `__match_args__`
-- Clear inheritance for method sharing
+**Why not ABC?**
+
+An earlier version used `class Result(ABC, Generic[T, E])` with Ok and Err as
+subclasses. This caused type inference problems—`Ok(42)` inferred as
+`Ok[int, Unknown]` because the error type `E` had no source. The type alias
+pattern gives precise inference: `Ok(42)` → `Ok[int]`.
+
+See [Design Evolution](#design-evolution) for the full story.
+
+**Why duplicate methods?**
+
+Without an ABC, methods like `map()`, `and_then()`, etc. are implemented in
+both Ok and Err. This duplication is the cost of precise type inference—a
+worthwhile trade-off for a type-safety focused library.
 
 ### 2. LazyResult Deferred Execution
 
@@ -310,11 +401,14 @@ unwrappy draws inspiration from existing Python Result implementations while mak
 
 ### vs. rustedpy/result
 
-[rustedpy/result](https://github.com/rustedpy/result) is a direct Rust port with similar goals.
+[rustedpy/result](https://github.com/rustedpy/result) is a direct Rust port with similar goals. **Note: rustedpy/result is now in maintenance mode**, which is the primary reason unwrappy exists—to provide an actively maintained alternative with additional features like LazyResult.
+
+unwrappy adopted rustedpy's type system pattern for precise type inference (see [Design Evolution](#design-evolution)).
 
 | Feature | rustedpy/result | unwrappy |
 |---------|-----------------|----------|
-| Type definition | `Union[Ok[T], Err[E]]` type alias | ABC with Ok/Err subclasses |
+| Type definition | `Ok[T] \| Err[E]` type alias | `Ok[T] \| Err[E]` type alias |
+| Type parameters | Single (`Ok[T]`, `Err[E]`) | Single (`Ok[T]`, `Err[E]`) |
 | Value access | `.ok_value` / `.err_value` properties | `.unwrap()` / `.unwrap_err()` methods |
 | Type guards | `is_ok(result)` functions | `.is_ok()` methods |
 | Exception conversion | `@as_result` decorator | Not provided (explicit by design) |
@@ -326,7 +420,6 @@ unwrappy draws inspiration from existing Python Result implementations while mak
 - **`unwrap_or_raise` design**: rustedpy takes an exception class (`result.unwrap_or_raise(ValueError)`), unwrappy takes a factory function (`result.unwrap_or_raise(lambda e: ValueError(f"Invalid: {e}"))`). The factory approach gives full control over exception type and message based on the error value—useful for mapping domain errors to HTTP exceptions.
 - **No exception decorator**: unwrappy intentionally omits `@as_result`—decorators stack poorly with frameworks like FastAPI, Flask, or Django that already use decorators heavily. Explicit error handling at call sites is preferred over hidden exception catching.
 - **LazyResult**: unwrappy's unique contribution—deferred execution for clean async chaining without nested awaits
-- **ABC pattern**: Using abstract base class enables better pattern matching and shared method implementations
 
 ### vs. dry-python/returns
 
@@ -357,6 +450,7 @@ unwrappy draws inspiration from existing Python Result implementations while mak
 
 | Aspect | rustedpy/result | dry-python/returns | unwrappy |
 |--------|-----------------|-------------------|----------|
+| Type pattern | Union alias | ABC-based | Union alias |
 | Philosophy | Rust port | Full FP paradigm | Practical Rust-inspired |
 | Learning curve | Low | High | Low |
 | Type safety | Good | Excellent (mypy plugin) | Good |
@@ -367,7 +461,7 @@ unwrappy draws inspiration from existing Python Result implementations while mak
 
 Choose unwrappy when you want:
 - **Zero dependencies**: Pure Python with no external packages—just stdlib
-- **Lightweight**: ~400 lines of code, minimal footprint
+- **Lightweight**: Minimal footprint, no dependencies
 - **Rust-familiar API** without learning new terminology
 - **Simple async chaining** via LazyResult without multiple container types
 - **Side-effect methods** built into the Result type
@@ -375,11 +469,11 @@ Choose unwrappy when you want:
 
 ### Dependency Comparison
 
-| Library | Dependencies | Lines of Code |
-|---------|--------------|---------------|
-| unwrappy | 0 | ~400 |
-| rustedpy/result | 0 | ~500 |
-| dry-python/returns | 3+ (typing-extensions, etc.) | ~5000+ |
+| Library | Dependencies |
+|---------|--------------|
+| unwrappy | 0 |
+| rustedpy/result | 0 |
+| dry-python/returns | 3+ (typing-extensions, etc.) |
 
 unwrappy prioritizes being a lightweight, dependency-free addition to your project.
 

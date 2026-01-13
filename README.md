@@ -1,6 +1,6 @@
 # unwrappy
 
-Rust-inspired `Result` and `Option` types for Python, enabling safe, expressive error handling without exceptions.
+Rust-inspired `Result` and `Option` types for Python, enabling safe, expressive error handling with errors as values.
 
 ## Installation
 

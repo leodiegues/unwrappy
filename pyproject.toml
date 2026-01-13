@@ -1,13 +1,29 @@
 [project]
 name = "unwrappy"
 version = "0.0.1"
-description = "Yet another Rust-inspired Result and Option ergonomics brought to Python, enabling safe, expressive error handling without exceptions."
+description = "Yet another Rust-inspired Result and Option ergonomics brought to Python, enabling safe, expressive error handling with errors as values."
 readme = "README.md"
 authors = [
     { name = "Leonardo Diegues", email = "leo@diegues.dev" }
 ]
 requires-python = ">=3.10,<4.0"
 dependencies = []
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
 
 [build-system]
 requires = ["uv_build>=0.9.5,<0.10.0"]
@@ -15,6 +31,8 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "mypy>=1.19.1",
+    "pyright>=1.1.408",
     "pytest>=9.0.2",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=7.0.0",
@@ -23,6 +41,65 @@ dev = [
     "typing-extensions>=4.12.0",
 ]
 
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+include = [
+    "src/**/*.py",
+    "tests/**/*.py",
+]
+
+[tool.ruff.lint]
+preview = true  # For `PLW1514`
+extend-select = [
+    "Q",
+    "RUF100",
+    "RUF018",
+    "C90",
+    "UP",
+    "I",
+    "D",
+    "TID251",
+    "PLW1514",
+]
+flake8-quotes = { inline-quotes = "double", multiline-quotes = "double" }
+mccabe = { max-complexity = 15 }
+ignore = [
+    "D100", # ignore missing docstring in module
+    "D102", # ignore missing docstring in public method
+    "D104", # ignore missing docstring in public package
+    "D105", # ignore missing docstring in magic methods
+    "D107", # ignore missing docstring in __init__ methods
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = ["unwrappy"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 addopts = [ "-vv", "--cov=unwrappy" ]
+
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+reportUnnecessaryIsInstance = false
+reportUnnecessaryTypeIgnoreComment = true
+reportMissingModuleSource = false
+include = [
+    "src/unwrappy",
+    "tests",
+]
+venvPath = '.'
+venv = ".venv"
+executionEnvironments = [
+    { root = "tests", reportUnusedFunction = false, reportPrivateImportUsage = false, reportUnknownVariableType = false, reportUnknownMemberType = false, reportUnknownArgumentType = false, reportUnknownLambdaType = false, reportUnknownParameterType = false, reportUnnecessaryComparison = false, reportMatchNotExhaustive = false, reportAssertTypeFailure = false },
+]
+
+[tool.mypy]
+files = "src/unwrappy/*.py"
+strict = true
