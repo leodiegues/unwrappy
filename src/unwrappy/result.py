@@ -678,7 +678,9 @@ class LazyResult(Generic[T, E]):
     def flatten(self: LazyResult[Result[U, E], E]) -> LazyResult[U, E]:
         """Flatten nested LazyResult[Result[U, E], E] to LazyResult[U, E]."""
         # cast needed: type transformation from Result[Result[U,E],E] -> Result[U,E]
-        return cast(LazyResult[U, E], LazyResult(self._source, (*self._operations, FlattenOp())))
+        return cast(
+            LazyResult[U, E], LazyResult(self._source, (*self._operations, FlattenOp()))
+        )
 
     async def collect(self) -> Result[T, E]:
         """Execute the lazy chain and return the final Result."""
