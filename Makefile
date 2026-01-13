@@ -47,8 +47,7 @@ typecheck-all: typecheck-ty typecheck-pyright typecheck-mypy
 
 .PHONY: test
 test: ## Run tests and collect coverage data
-	@# To test using a specific version of python, run 'make install-all-python' then set environment variable PYTEST_PYTHON=3.10 or similar
-	COLUMNS=150 $(if $(PYTEST_PYTHON),UV_PROJECT_ENVIRONMENT=.venv$(subst .,,$(PYTEST_PYTHON))) uv run $(if $(PYTEST_PYTHON),--python $(PYTEST_PYTHON)) coverage run -m pytest -n auto --dist=loadgroup --durations=20
+	COLUMNS=150 uv run pytest
 	@uv run coverage combine
 	@uv run coverage report
 
@@ -56,14 +55,6 @@ test: ## Run tests and collect coverage data
 testcov: test ## Run tests and generate an HTML coverage report
 	@echo "building coverage html"
 	@uv run coverage html
-
-.PHONY: update-examples
-update-examples: ## Update documentation examples
-	uv run -m pytest --update-examples tests/test_examples.py
-
-.PHONY: update-vcr-tests
-update-vcr-tests: ## Update tests using VCR that hit LLM APIs; note you'll need to set API keys as appropriate
-	uv run -m pytest --record-mode=rewrite tests
 
 # `--no-strict` so you can build the docs without fixing all warnings
 .PHONY: docs
