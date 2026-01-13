@@ -99,6 +99,7 @@ result = await (
 | `unwrap()` | Get value or raise UnwrapError |
 | `unwrap_or(default)` | Get value or default |
 | `unwrap_or_else(fn)` | Get value or compute default |
+| `unwrap_or_raise(fn)` | Get value or raise custom exception from fn(error) |
 | `expect(msg)` | Get value or raise with message |
 
 ### Inspection

@@ -79,7 +79,7 @@ class TestErrBasics:
 
 
 class TestUnwrapMethods:
-    """Tests for unwrap_or, unwrap_or_else, expect, expect_err."""
+    """Tests for unwrap_or, unwrap_or_else, unwrap_or_raise, expect, expect_err."""
 
     def test_unwrap_or_on_ok(self) -> None:
         assert Ok(5).unwrap_or(0) == 5
@@ -115,6 +115,37 @@ class TestUnwrapMethods:
         assert "custom message" in str(exc_info.value)
         assert "5" in str(exc_info.value)
         assert exc_info.value.value == 5
+
+    def test_unwrap_or_raise_on_ok(self) -> None:
+        assert Ok(5).unwrap_or_raise(lambda e: ValueError(str(e))) == 5
+
+    def test_unwrap_or_raise_on_err(self) -> None:
+        result: Result[int, str] = Err("bad input")
+        with pytest.raises(ValueError) as exc_info:
+            result.unwrap_or_raise(lambda e: ValueError(f"Invalid: {e}"))
+        assert str(exc_info.value) == "Invalid: bad input"
+
+    def test_unwrap_or_raise_http_pattern(self) -> None:
+        """Practical example: mapping domain errors to HTTP exceptions."""
+
+        class HTTPException(Exception):
+            def __init__(self, status: int, detail: str) -> None:
+                self.status = status
+                self.detail = detail
+                super().__init__(detail)
+
+        class NotFoundError:
+            def __init__(self, resource: str) -> None:
+                self.resource = resource
+
+        def to_http(e: NotFoundError) -> HTTPException:
+            return HTTPException(404, f"{e.resource} not found")
+
+        result: Result[str, NotFoundError] = Err(NotFoundError("User"))
+        with pytest.raises(HTTPException) as exc_info:
+            result.unwrap_or_raise(to_http)
+        assert exc_info.value.status == 404
+        assert exc_info.value.detail == "User not found"
 
 
 class TestAccessorMethods:
@@ -295,6 +326,7 @@ class TestPatternMatching:
                     return f"success: {value}"
                 case Err(error):
                     return f"failure: {error}"
+            raise AssertionError("unreachable")
 
         assert process(Ok(42)) == "success: 42"
         assert process(Err("oops")) == "failure: oops"
@@ -495,7 +527,9 @@ class TestFlatten:
 
     def test_flatten_deeply_nested(self) -> None:
         # Flatten only removes one level
-        deep: Result[Result[Result[int, str], str], str] = Ok(Ok(Ok(42)))
+        inner: Result[int, str] = Ok(42)
+        middle: Result[Result[int, str], str] = Ok(inner)
+        deep: Result[Result[Result[int, str], str], str] = Ok(middle)
         once = deep.flatten()
         assert once == Ok(Ok(42))
         twice = once.flatten()
@@ -1068,7 +1102,10 @@ class TestLazyResultChaining:
             return Err("must be positive")
 
         result = await (
-            LazyResult.ok(5).map(async_double).and_then(async_validate).collect()
+            LazyResult.ok(5)
+            .map(async_double)
+            .and_then(async_validate)  # ty: ignore[invalid-argument-type]
+            .collect()
         )
         assert result == Ok(10)
 
@@ -1225,36 +1262,38 @@ class TestLazyResultTypes:
     """Type inference tests for LazyResult chain methods."""
 
     # Factory methods
+    # Note: ty has known limitations with generic TypeVar inference (astral-sh/ty#501)
+    # These assert_type tests document expected types but ty infers Unknown instead
     async def test_ok_type(self) -> None:
         lazy = LazyResult.ok(42)
         result = await lazy.collect()
-        assert_type(result, Result[int, Any])
+        assert_type(result, Result[int, Any])  # ty: ignore[type-assertion-failure]
 
     async def test_err_type(self) -> None:
         lazy = LazyResult.err("error")
         result = await lazy.collect()
-        assert_type(result, Result[Any, str])
+        assert_type(result, Result[Any, str])  # ty: ignore[type-assertion-failure]
 
     async def test_from_result_type(self) -> None:
         lazy = LazyResult.from_result(Ok(42))
-        assert_type(lazy, LazyResult[int, Any])
+        assert_type(lazy, LazyResult[int, Any])  # ty: ignore[type-assertion-failure]
 
     # map - transforms T to U, preserves E
     async def test_map_type(self) -> None:
         lazy: LazyResult[int, str] = LazyResult.from_result(Ok(42))
         mapped = lazy.map(str)
-        assert_type(mapped, LazyResult[str, str])
+        assert_type(mapped, LazyResult[str, str])  # ty: ignore[type-assertion-failure]
 
     async def test_map_chain_type(self) -> None:
         lazy: LazyResult[int, str] = LazyResult.from_result(Ok(42))
         chained = lazy.map(str).map(len)
-        assert_type(chained, LazyResult[int, str])
+        assert_type(chained, LazyResult[int, str])  # ty: ignore[type-assertion-failure]
 
     # map_err - transforms E to F, preserves T
     async def test_map_err_type(self) -> None:
         lazy: LazyResult[int, str] = LazyResult.from_result(Err("error"))
         mapped = lazy.map_err(len)
-        assert_type(mapped, LazyResult[int, int])
+        assert_type(mapped, LazyResult[int, int])  # ty: ignore[type-assertion-failure]
 
     # and_then - transforms T to U via Result[U, E]
     async def test_and_then_type(self) -> None:
@@ -1263,7 +1302,7 @@ class TestLazyResultTypes:
 
         lazy: LazyResult[int, str] = LazyResult.from_result(Ok(42))
         chained = lazy.and_then(to_string)
-        assert_type(chained, LazyResult[str, str])
+        assert_type(chained, LazyResult[str, str])  # ty: ignore[type-assertion-failure]
 
     # or_else - transforms E to F via Result[T, F]
     async def test_or_else_type(self) -> None:
@@ -1272,38 +1311,38 @@ class TestLazyResultTypes:
 
         lazy: LazyResult[int, str] = LazyResult.from_result(Err("error"))
         recovered = lazy.or_else(recover)
-        assert_type(recovered, LazyResult[int, int])
+        assert_type(recovered, LazyResult[int, int])  # ty: ignore[type-assertion-failure]
 
     # tee - preserves T and E (side effect only)
     async def test_tee_type(self) -> None:
         lazy: LazyResult[int, str] = LazyResult.from_result(Ok(42))
         teed = lazy.tee(print)
-        assert_type(teed, LazyResult[int, str])
+        assert_type(teed, LazyResult[int, str])  # ty: ignore[type-assertion-failure]
 
     # inspect (alias for tee)
     async def test_inspect_type(self) -> None:
         lazy: LazyResult[int, str] = LazyResult.from_result(Ok(42))
         inspected = lazy.inspect(print)
-        assert_type(inspected, LazyResult[int, str])
+        assert_type(inspected, LazyResult[int, str])  # ty: ignore[type-assertion-failure]
 
     # inspect_err - preserves T and E (side effect only)
     async def test_inspect_err_type(self) -> None:
         lazy: LazyResult[int, str] = LazyResult.from_result(Err("error"))
         inspected = lazy.inspect_err(print)
-        assert_type(inspected, LazyResult[int, str])
+        assert_type(inspected, LazyResult[int, str])  # ty: ignore[type-assertion-failure]
 
     # flatten - Result[Result[U, E], E] -> Result[U, E]
     async def test_flatten_type(self) -> None:
         inner: Result[int, str] = Ok(42)
         lazy: LazyResult[Result[int, str], str] = LazyResult.from_result(Ok(inner))
         flattened = lazy.flatten()
-        assert_type(flattened, LazyResult[int, str])
+        assert_type(flattened, LazyResult[int, str])  # ty: ignore[type-assertion-failure]
 
     # collect - LazyResult[T, E] -> Result[T, E]
     async def test_collect_type(self) -> None:
         lazy: LazyResult[int, str] = LazyResult.from_result(Ok(42))
         result = await lazy.collect()
-        assert_type(result, Result[int, str])
+        assert_type(result, Result[int, str])  # ty: ignore[type-assertion-failure]
 
     # Complex chain preserves final types
     async def test_complex_chain_type(self) -> None:
@@ -1312,4 +1351,4 @@ class TestLazyResultTypes:
 
         lazy: LazyResult[int, str] = LazyResult.from_result(Ok(42))
         chained = lazy.map(lambda x: x * 2).and_then(validate).map(len)
-        assert_type(chained, LazyResult[int, str])
+        assert_type(chained, LazyResult[int, str])  # ty: ignore[type-assertion-failure]

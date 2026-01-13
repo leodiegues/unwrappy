@@ -99,21 +99,46 @@ async def _maybe_await(value: T | Awaitable[T]) -> T:
 
 ### 5. Type System Approach
 
-We use `cast()` to bridge the gap between runtime flexibility and static types:
+LazyResult methods accept both sync and async callables via union types:
 
 ```python
-def map(self, fn: Callable[[T], U]) -> LazyResult[U, E]:
-    return cast(LazyResult[U, E], self._chain(MapOp(fn)))
+def map(self, fn: Callable[[T], U | Awaitable[U]]) -> LazyResult[U, E]:
+    return LazyResult(self._source, (*self._operations, MapOp(fn)))
 ```
 
-**Why?**
-- Public API has correct type signatures
-- Internal `_chain` returns `LazyResult[Any, Any]`
-- `cast()` tells type checkers the transformation is intentional
+**Design decisions:**
+- Direct `LazyResult` construction preserves type parameters better than `cast()`
+- Union types (`U | Awaitable[U]`) express the sync/async flexibility in signatures
+- `cast()` is only used for `flatten()` where the type transformation from `Result[Result[U,E],E]` to `Result[U,E]` cannot be expressed otherwise
 
-**Limitation**: Python's type system cannot track type transformations through a heterogeneous operation queue. This is a fundamental limitation, not a design flaw.
+**Limitation**: Python's type system cannot fully track type transformations through a heterogeneous operation queue. This is a fundamental limitation, not a design flaw.
 
-### 6. Separate Async Methods on Result
+### 6. Type Checker Limitations
+
+**Known limitations with ty (Astral's type checker):**
+
+ty has documented issues with generic TypeVar inference ([astral-sh/ty#501](https://github.com/astral-sh/ty/issues/501), [#2030](https://github.com/astral-sh/ty/issues/2030)). When using LazyResult factory methods, ty may infer `Unknown` instead of the expected type parameters.
+
+**Example:**
+```python
+lazy = LazyResult.ok(42)
+result = await lazy.collect()
+# ty infers: Result[Unknown, Any]
+# Expected:  Result[int, Any]
+```
+
+**Workarounds:**
+- Use explicit type annotations: `lazy: LazyResult[int, str] = LazyResult.from_result(Ok(42))`
+- The runtime behavior is always correct; only static type inference is affected
+- The test suite uses `# ty: ignore[type-assertion-failure]` comments to document expected types while acknowledging ty's inference limitations
+
+**Why this happens:**
+- LazyResult handles sync and async functions uniformly via `_maybe_await()` at runtime
+- This polymorphism cannot be fully expressed in Python's static type system
+- When async functions are passed, the type checker sees `Callable[..., Awaitable[T]]` but the runtime awaits it, producing `T`
+- ty's generic inference is stricter than some other type checkers, surfacing these limitations more visibly
+
+### 7. Separate Async Methods on Result
 
 Unlike LazyResult, Result has explicit async variants:
 
@@ -130,7 +155,7 @@ await result.map_async(async_fn)
 - Async functions must be awaited
 - Explicit is better than implicit for immediate execution
 
-### 7. No Exception-Catching Decorators
+### 8. No Exception-Catching Decorators
 
 Unlike other Result libraries, unwrappy intentionally omits decorators like `@as_result` or `@safe` that convert exception-raising functions into Result-returning functions.
 
@@ -295,9 +320,10 @@ unwrappy draws inspiration from existing Python Result implementations while mak
 | Exception conversion | `@as_result` decorator | Not provided (explicit by design) |
 | Do notation | `do()` generator syntax | Not provided |
 | Async support | `do_async()` | LazyResult with unified sync/async |
-| `unwrap_or_raise` | ✓ | ✗ |
+| `unwrap_or_raise` | ✓ (takes exception class) | ✓ (takes factory function) |
 
 **Key differences:**
+- **`unwrap_or_raise` design**: rustedpy takes an exception class (`result.unwrap_or_raise(ValueError)`), unwrappy takes a factory function (`result.unwrap_or_raise(lambda e: ValueError(f"Invalid: {e}"))`). The factory approach gives full control over exception type and message based on the error value—useful for mapping domain errors to HTTP exceptions.
 - **No exception decorator**: unwrappy intentionally omits `@as_result`—decorators stack poorly with frameworks like FastAPI, Flask, or Django that already use decorators heavily. Explicit error handling at call sites is preferred over hidden exception catching.
 - **LazyResult**: unwrappy's unique contribution—deferred execution for clean async chaining without nested awaits
 - **ABC pattern**: Using abstract base class enables better pattern matching and shared method implementations

@@ -151,6 +151,30 @@ class Result(ABC, Generic[T, E]):
         """
         return self.unwrap() if self.is_ok() else fn(self.unwrap_err())
 
+    def unwrap_or_raise(self, fn: Callable[[E], BaseException]) -> T:
+        """Return Ok value or raise exception created by fn(error).
+
+        Useful at API boundaries where domain errors map to HTTP exceptions.
+
+        Args:
+            fn: Function that takes error value and returns an exception to raise.
+
+        Returns:
+            The Ok value if Ok.
+
+        Raises:
+            BaseException: The exception returned by fn(error) if Err.
+
+        Example:
+            >>> Ok(5).unwrap_or_raise(lambda e: ValueError(str(e)))
+            5
+            >>> Err("bad").unwrap_or_raise(lambda e: ValueError(f"Invalid: {e}"))
+            # Raises ValueError("Invalid: bad")
+        """
+        if self.is_ok():
+            return self.unwrap()
+        raise fn(self.unwrap_err())
+
     def ok(self) -> T | None:
         """Return Ok value or None.
 
@@ -621,35 +645,40 @@ class LazyResult(Generic[T, E]):
         """Internal: create new LazyResult with operation appended."""
         return LazyResult(self._source, (*self._operations, op))
 
-    def map(self, fn: Callable[[T], U]) -> LazyResult[U, E]:
+    def map(self, fn: Callable[[T], U | Awaitable[U]]) -> LazyResult[U, E]:
         """Transform Ok value. fn can be sync or async."""
-        return cast(LazyResult[U, E], self._chain(MapOp(fn)))
+        return LazyResult(self._source, (*self._operations, MapOp(fn)))
 
-    def map_err(self, fn: Callable[[E], F]) -> LazyResult[T, F]:
+    def map_err(self, fn: Callable[[E], F | Awaitable[F]]) -> LazyResult[T, F]:
         """Transform Err value. fn can be sync or async."""
-        return cast(LazyResult[T, F], self._chain(MapErrOp(fn)))
+        return LazyResult(self._source, (*self._operations, MapErrOp(fn)))
 
-    def and_then(self, fn: Callable[[T], Result[U, E]]) -> LazyResult[U, E]:
+    def and_then(
+        self, fn: Callable[[T], Result[U, E] | Awaitable[Result[U, E]]]
+    ) -> LazyResult[U, E]:
         """Chain Result-returning function. fn can be sync or async."""
-        return cast(LazyResult[U, E], self._chain(AndThenOp(fn)))
+        return LazyResult(self._source, (*self._operations, AndThenOp(fn)))
 
-    def or_else(self, fn: Callable[[E], Result[T, F]]) -> LazyResult[T, F]:
+    def or_else(
+        self, fn: Callable[[E], Result[T, F] | Awaitable[Result[T, F]]]
+    ) -> LazyResult[T, F]:
         """Recover from Err. fn can be sync or async."""
-        return cast(LazyResult[T, F], self._chain(OrElseOp(fn)))
+        return LazyResult(self._source, (*self._operations, OrElseOp(fn)))
 
     def tee(self, fn: Callable[[T], Any]) -> LazyResult[T, E]:
         """Side effect on Ok value. fn can be sync or async."""
-        return cast(LazyResult[T, E], self._chain(TeeOp(fn)))
+        return LazyResult(self._source, (*self._operations, TeeOp(fn)))
 
     inspect = tee
 
     def inspect_err(self, fn: Callable[[E], Any]) -> LazyResult[T, E]:
         """Side effect on Err value. fn can be sync or async."""
-        return cast(LazyResult[T, E], self._chain(InspectErrOp(fn)))
+        return LazyResult(self._source, (*self._operations, InspectErrOp(fn)))
 
     def flatten(self: LazyResult[Result[U, E], E]) -> LazyResult[U, E]:
         """Flatten nested LazyResult[Result[U, E], E] to LazyResult[U, E]."""
-        return cast(LazyResult[U, E], self._chain(FlattenOp()))
+        # cast needed: type transformation from Result[Result[U,E],E] -> Result[U,E]
+        return cast(LazyResult[U, E], LazyResult(self._source, (*self._operations, FlattenOp())))
 
     async def collect(self) -> Result[T, E]:
         """Execute the lazy chain and return the final Result."""
