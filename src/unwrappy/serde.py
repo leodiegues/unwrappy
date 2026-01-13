@@ -65,10 +65,10 @@ class ResultEncoder(json.JSONEncoder):
             TypeError: If o is a LazyResult.
         """
         if isinstance(o, Ok):
-            return {_TYPE_KEY: "Ok", "value": o.unwrap()}
+            return {_TYPE_KEY: "Ok", "value": o.unwrap()}  # pyright: ignore[reportUnknownVariableType]
 
         if isinstance(o, Err):
-            return {_TYPE_KEY: "Err", "error": o.unwrap_err()}
+            return {_TYPE_KEY: "Err", "error": o.unwrap_err()}  # pyright: ignore[reportUnknownVariableType]
 
         if isinstance(o, LazyResult):
             raise TypeError(

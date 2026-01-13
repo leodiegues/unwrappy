@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any, Literal
 
 import pytest
 from typing_extensions import assert_type
@@ -472,7 +473,9 @@ class TestTeeInspect:
         assert result.tee(lambda x: None) is result
 
     def test_inspect_is_alias_for_tee(self) -> None:
-        assert Result.inspect is Result.tee
+        # Both Ok and Err have inspect as alias for tee
+        assert Ok.inspect is Ok.tee
+        assert Err.inspect is Err.tee
 
     def test_inspect_err_on_err_calls_fn(self) -> None:
         called_with: list[str] = []
@@ -631,54 +634,54 @@ class TestResultTypeInference:
     """Tests for basic Result type inference."""
 
     def test_ok_type_annotated(self) -> None:
-        ok: Ok[int, str] = Ok(42)
-        assert_type(ok, Ok[int, str])
+        ok: Ok[int] = Ok(42)
+        assert_type(ok, Ok[int])
 
     def test_ok_with_string_annotated(self) -> None:
-        ok: Ok[str, int] = Ok("hello")
-        assert_type(ok, Ok[str, int])
+        ok: Ok[str] = Ok("hello")
+        assert_type(ok, Ok[str])
 
     def test_err_type_annotated(self) -> None:
-        err: Err[int, str] = Err("error")
-        assert_type(err, Err[int, str])
+        err: Err[str] = Err("error")
+        assert_type(err, Err[str])
 
     def test_err_with_int_annotated(self) -> None:
-        err: Err[str, int] = Err(404)
-        assert_type(err, Err[str, int])
+        err: Err[int] = Err(404)
+        assert_type(err, Err[int])
 
     def test_result_union_ok(self) -> None:
         result: Result[int, str] = Ok(42)
-        # Type checker narrows to Ok[int, str] but we annotated as Result[int, str]
-        assert_type(result, Ok[int, str])
+        # Type checker narrows to Ok[int] but we annotated as Result[int, str]
+        assert_type(result, Ok[int])
 
     def test_result_union_err(self) -> None:
         result: Result[int, str] = Err("error")
-        # Type checker narrows to Err[int, str] but we annotated as Result[int, str]
-        assert_type(result, Err[int, str])
+        # Type checker narrows to Err[str] but we annotated as Result[int, str]
+        assert_type(result, Err[str])
 
 
 class TestMapTypes:
     """Tests for type transformations in map operations."""
 
     def test_map_transforms_ok_type(self) -> None:
-        result: Result[int, str] = Ok(42)
+        result: Ok[int] = Ok(42)
         mapped = result.map(str)
-        assert_type(mapped, Result[str, str])
+        assert_type(mapped, Ok[str])
 
     def test_map_on_ok_directly_annotated(self) -> None:
-        result: Result[int, str] = Ok(42)
+        result: Ok[int] = Ok(42)
         mapped = result.map(str)
-        assert_type(mapped, Result[str, str])
+        assert_type(mapped, Ok[str])
 
     def test_map_err_transforms_err_type(self) -> None:
-        result: Result[int, str] = Err("error")
+        result: Err[str] = Err("error")
         mapped = result.map_err(len)
-        assert_type(mapped, Result[int, int])
+        assert_type(mapped, Err[int])
 
     def test_map_err_on_err_directly_annotated(self) -> None:
-        result: Result[int, str] = Err("error")
+        result: Err[str] = Err("error")
         mapped = result.map_err(len)
-        assert_type(mapped, Result[int, int])
+        assert_type(mapped, Err[int])
 
     def test_map_or_return_type(self) -> None:
         result: Result[int, str] = Ok(42)
@@ -698,20 +701,20 @@ class TestChainTypes:
     """Tests for type transformations in chain operations."""
 
     def test_and_then_type(self) -> None:
-        def to_string(x: int) -> Result[str, str]:
+        def to_string(x: int) -> Ok[str] | Err[str]:
             return Ok(str(x))
 
-        result: Result[int, str] = Ok(42)
+        result: Ok[int] = Ok(42)
         chained = result.and_then(to_string)
-        assert_type(chained, Result[str, str])
+        assert_type(chained, Ok[str] | Err[str])
 
     def test_or_else_type(self) -> None:
-        def recover(e: str) -> Result[int, int]:
+        def recover(e: str) -> Ok[int] | Err[int]:
             return Ok(len(e))
 
-        result: Result[int, str] = Err("error")
+        result: Err[str] = Err("error")
         recovered = result.or_else(recover)
-        assert_type(recovered, Result[int, int])
+        assert_type(recovered, Ok[int] | Err[int])
 
 
 class TestUnwrapTypes:
@@ -728,14 +731,16 @@ class TestUnwrapTypes:
         assert_type(error, str)
 
     def test_ok_method_returns_optional(self) -> None:
-        result: Result[int, str] = Ok(42)
+        # With single-param generics, Ok.ok() returns T directly
+        result: Ok[int] = Ok(42)
         value = result.ok()
-        assert_type(value, int | None)
+        assert_type(value, int)
 
     def test_err_method_returns_optional(self) -> None:
-        result: Result[int, str] = Err("error")
+        # With single-param generics, Err.err() returns E directly
+        result: Err[str] = Err("error")
         error = result.err()
-        assert_type(error, str | None)
+        assert_type(error, str)
 
     def test_unwrap_or_returns_t(self) -> None:
         result: Result[int, str] = Ok(42)
@@ -769,47 +774,49 @@ class TestAsyncTypes:
         async def async_str(x: int) -> str:
             return str(x)
 
-        result: Result[int, str] = Ok(42)
+        result: Ok[int] = Ok(42)
         awaited = await result.map_async(async_str)
-        assert_type(awaited, Result[str, str])
+        assert_type(awaited, Ok[str])
 
     async def test_map_err_async_return_type(self) -> None:
         async def async_len(s: str) -> int:
             return len(s)
 
-        result: Result[int, str] = Ok(42)
+        result: Ok[int] = Ok(42)
         awaited = await result.map_err_async(async_len)
-        assert_type(awaited, Result[int, int])
+        assert_type(awaited, Ok[int])
 
     async def test_and_then_async_return_type(self) -> None:
-        async def async_to_string(x: int) -> Result[str, str]:
+        async def async_to_string(x: int) -> Ok[str] | Err[str]:
             return Ok(str(x))
 
-        result: Result[int, str] = Ok(42)
+        result: Ok[int] = Ok(42)
         awaited = await result.and_then_async(async_to_string)
-        assert_type(awaited, Result[str, str])
+        assert_type(awaited, Ok[str] | Err[str])
 
     async def test_or_else_async_return_type(self) -> None:
-        async def async_recover(e: str) -> Result[int, int]:
+        async def async_recover(e: str) -> Ok[int] | Err[int]:
             return Ok(len(e))
 
-        result: Result[int, str] = Err("error")
+        result: Err[str] = Err("error")
         awaited = await result.or_else_async(async_recover)
-        assert_type(awaited, Result[int, int])
+        assert_type(awaited, Ok[int] | Err[int])
 
 
 class TestPredicateTypes:
     """Tests for predicate method return types."""
 
-    def test_is_ok_returns_bool(self) -> None:
-        result: Result[int, str] = Ok(42)
+    def test_is_ok_returns_literal_true(self) -> None:
+        # Ok.is_ok() returns Literal[True] for precise type narrowing
+        result: Ok[int] = Ok(42)
         is_ok = result.is_ok()
-        assert_type(is_ok, bool)
+        assert_type(is_ok, Literal[True])
 
-    def test_is_err_returns_bool(self) -> None:
-        result: Result[int, str] = Err("error")
+    def test_is_err_returns_literal_true(self) -> None:
+        # Err.is_err() returns Literal[True] for precise type narrowing
+        result: Err[str] = Err("error")
         is_err = result.is_err()
-        assert_type(is_err, bool)
+        assert_type(is_err, Literal[True])
 
 
 class TestLazyResultFactory:
@@ -885,9 +892,7 @@ class TestLazyResultMap:
         assert called is False
 
     async def test_map_chain_multiple(self) -> None:
-        result = await (
-            LazyResult.ok(2).map(lambda x: x + 1).map(lambda x: x * 2).collect()
-        )
+        result = await LazyResult.ok(2).map(lambda x: x + 1).map(lambda x: x * 2).collect()
         assert result == Ok(6)  # (2 + 1) * 2
 
 
@@ -932,12 +937,14 @@ class TestLazyResultAndThen:
     async def test_and_then_sync_on_err_skips(self) -> None:
         called = False
 
-        def should_not_call(x: int) -> Result[int, str]:
+        def should_not_call(x: int) -> Ok[int] | Err[str]:
             nonlocal called
             called = True
             return Ok(x * 2)
 
-        result = await LazyResult.err("error").and_then(should_not_call).collect()
+        # Explicitly type the LazyResult to avoid literal type issues
+        lazy: LazyResult[int, str] = LazyResult.err("error")
+        result = await lazy.and_then(should_not_call).collect()  # ty:ignore[invalid-argument-type]
         assert result == Err("error")
         assert called is False
 
@@ -964,20 +971,20 @@ class TestLazyResultOrElse:
         assert result == Ok(5)  # len("error")
 
     async def test_or_else_sync_on_err_returns_err(self) -> None:
-        result = await (
-            LazyResult.err("error").or_else(lambda e: Err(f"new: {e}")).collect()
-        )
+        result = await LazyResult.err("error").or_else(lambda e: Err(f"new: {e}")).collect()
         assert result == Err("new: error")
 
     async def test_or_else_sync_on_ok_skips(self) -> None:
         called = False
 
-        def should_not_call(e: str) -> Result[int, str]:
+        def should_not_call(e: str) -> Ok[int] | Err[str]:
             nonlocal called
             called = True
             return Ok(0)
 
-        result = await LazyResult.ok(42).or_else(should_not_call).collect()
+        # Explicitly type the LazyResult to avoid literal type issues
+        lazy: LazyResult[int, str] = LazyResult.ok(42)
+        result = await lazy.or_else(should_not_call).collect()  # ty:ignore[invalid-argument-type]
         assert result == Ok(42)
         assert called is False
 
@@ -1028,11 +1035,7 @@ class TestLazyResultInspectErr:
 
     async def test_inspect_err_sync_on_err_calls_fn(self) -> None:
         called_with: list[str] = []
-        result = await (
-            LazyResult.err("error")
-            .inspect_err(lambda e: called_with.append(e))
-            .collect()
-        )
+        result = await LazyResult.err("error").inspect_err(lambda e: called_with.append(e)).collect()
         assert result == Err("error")
         assert called_with == ["error"]
 
@@ -1183,12 +1186,7 @@ class TestLazyResultFromAwaitable:
         async def fetch_user(id: int) -> Result[dict[str, str], str]:
             return Ok({"name": "Alice", "id": str(id)})
 
-        result = await (
-            LazyResult.from_awaitable(fetch_user(42))
-            .map(lambda u: u["name"])
-            .map(str.upper)
-            .collect()
-        )
+        result = await LazyResult.from_awaitable(fetch_user(42)).map(lambda u: u["name"]).map(str.upper).collect()
         assert result == Ok("ALICE")
 
 
@@ -1214,10 +1212,7 @@ class TestResultLazyMethod:
     async def test_lazy_from_result_chain(self) -> None:
         initial: Result[int, str] = Ok(10)
         result = await (
-            initial.lazy()
-            .and_then(lambda x: Ok(x + 5) if x > 0 else Err("negative"))
-            .map(lambda x: x * 2)
-            .collect()
+            initial.lazy().and_then(lambda x: Ok(x + 5) if x > 0 else Err("negative")).map(lambda x: x * 2).collect()
         )
         assert result == Ok(30)  # (10 + 5) * 2
 

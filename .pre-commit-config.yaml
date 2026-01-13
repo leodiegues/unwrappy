@@ -1,0 +1,36 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=750"]
+      - id: check-toml
+      - id: check-yaml
+        args:
+          - --unsafe
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: local
+    hooks:
+      - id: local-ruff-check
+        name: ruff check
+        entry: make
+        args: [lint]
+        require_serial: true
+        language: unsupported
+        types: [python]
+      - id: local-ruff-format
+        name: ruff format
+        entry: make
+        args: [format]
+        require_serial: true
+        language: unsupported
+        types: [python]
+      - id: local-typecheck-ty
+        name: ty check
+        entry: make
+        args: [typecheck-ty]
+        require_serial: true
+        language: unsupported
+        types: [python]
