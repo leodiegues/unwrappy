@@ -11,7 +11,7 @@ from typing_extensions import assert_type
 
 from unwrappy import LazyResult
 from unwrappy.exceptions import UnwrapError
-from unwrappy.result import Err, Ok, Result, sequence, traverse
+from unwrappy.result import Err, Ok, Result, sequence_results, traverse_results
 
 
 class TestOkBasics:
@@ -150,20 +150,37 @@ class TestUnwrapMethods:
 
 
 class TestAccessorMethods:
-    """Tests for ok() and err() accessor methods."""
+    """Tests for ok() and err() accessor methods returning Option."""
 
     def test_ok_method_on_ok(self) -> None:
-        assert Ok(5).ok() == 5
+        from unwrappy import Some
+
+        assert Ok(5).ok() == Some(5)
 
     def test_ok_method_on_err(self) -> None:
+        from unwrappy import NOTHING
+
         result: Result[int, str] = Err("error")
-        assert result.ok() is None
+        assert result.ok() is NOTHING
 
     def test_err_method_on_ok(self) -> None:
-        assert Ok(5).err() is None
+        from unwrappy import NOTHING
+
+        assert Ok(5).err() is NOTHING
 
     def test_err_method_on_err(self) -> None:
-        assert Err("error").err() == "error"
+        from unwrappy import Some
+
+        assert Err("error").err() == Some("error")
+
+    def test_ok_method_distinguishes_none_value(self) -> None:
+        """Test that Ok(None).ok() returns Some(None), not Nothing."""
+        from unwrappy import NOTHING, Some
+
+        # This is the key improvement: we can now distinguish
+        # Ok(None) from Err(x) via ok()
+        assert Ok(None).ok() == Some(None)
+        assert Ok(None).ok() is not NOTHING
 
 
 class TestMapCombinators:
@@ -337,17 +354,21 @@ class TestEdgeCases:
     """Tests for edge cases and special scenarios."""
 
     def test_ok_with_none_value(self) -> None:
+        from unwrappy import Some
+
         result = Ok(None)
         assert result.is_ok() is True
         assert result.unwrap() is None
-        assert result.ok() is None  # Returns the None value
+        assert result.ok() == Some(None)  # Returns Some(None), not Nothing
         assert repr(result) == "Ok(None)"
 
     def test_err_with_none_error(self) -> None:
+        from unwrappy import Some
+
         result = Err(None)
         assert result.is_err() is True
         assert result.unwrap_err() is None
-        assert result.err() is None  # Returns the None error
+        assert result.err() == Some(None)  # Returns Some(None), not Nothing
         assert repr(result) == "Err(None)"
 
     def test_ok_with_callable_value(self) -> None:
@@ -539,39 +560,39 @@ class TestFlatten:
         assert twice == Ok(42)
 
 
-class TestSequence:
-    """Tests for sequence and traverse static methods."""
+class TestSequenceResults:
+    """Tests for sequence_results and traverse_results functions."""
 
-    def test_sequence_all_ok(self) -> None:
+    def test_sequence_results_results_all_ok(self) -> None:
         results = [Ok(1), Ok(2), Ok(3)]
-        assert sequence(results) == Ok([1, 2, 3])
+        assert sequence_results(results) == Ok([1, 2, 3])
 
-    def test_sequence_fails_fast_on_err(self) -> None:
+    def test_sequence_results_fails_fast_on_err(self) -> None:
         results: list[Result[int, str]] = [Ok(1), Err("error"), Ok(3)]
-        assert sequence(results) == Err("error")
+        assert sequence_results(results) == Err("error")
 
-    def test_sequence_returns_first_err(self) -> None:
+    def test_sequence_results_returns_first_err(self) -> None:
         results: list[Result[int, str]] = [Ok(1), Err("first"), Err("second")]
-        assert sequence(results) == Err("first")
+        assert sequence_results(results) == Err("first")
 
-    def test_sequence_empty_list(self) -> None:
+    def test_sequence_results_empty_list(self) -> None:
         results: list[Result[int, str]] = []
-        assert sequence(results) == Ok([])
+        assert sequence_results(results) == Ok([])
 
-    def test_sequence_with_generator(self) -> None:
+    def test_sequence_results_with_generator(self) -> None:
         def gen() -> Iterable[Result[int, str]]:
             yield Ok(1)
             yield Ok(2)
             yield Ok(3)
 
-        assert sequence(gen()) == Ok([1, 2, 3])
+        assert sequence_results(gen()) == Ok([1, 2, 3])
 
-    def test_traverse_all_ok(self) -> None:
+    def test_traverse_results_all_ok(self) -> None:
         items = [1, 2, 3]
-        result = traverse(items, lambda x: Ok(x * 2))
+        result = traverse_results(items, lambda x: Ok(x * 2))
         assert result == Ok([2, 4, 6])
 
-    def test_traverse_fails_fast(self) -> None:
+    def test_traverse_results_fails_fast(self) -> None:
         items = [1, 2, 3]
 
         def maybe_fail(x: int) -> Result[int, str]:
@@ -579,11 +600,11 @@ class TestSequence:
                 return Err("failed on 2")
             return Ok(x * 2)
 
-        assert traverse(items, maybe_fail) == Err("failed on 2")
+        assert traverse_results(items, maybe_fail) == Err("failed on 2")
 
-    def test_traverse_empty_list(self) -> None:
+    def test_traverse_results_empty_list(self) -> None:
         items: list[int] = []
-        result = traverse(items, lambda x: Ok(x * 2))
+        result = traverse_results(items, lambda x: Ok(x * 2))
         assert result == Ok([])
 
 
@@ -730,17 +751,21 @@ class TestUnwrapTypes:
         error = result.unwrap_err()
         assert_type(error, str)
 
-    def test_ok_method_returns_optional(self) -> None:
-        # With single-param generics, Ok.ok() returns T directly
+    def test_ok_method_returns_some(self) -> None:
+        from unwrappy import Some
+
+        # Ok.ok() now returns Some[T] for type safety
         result: Ok[int] = Ok(42)
         value = result.ok()
-        assert_type(value, int)
+        assert_type(value, Some[int])
 
-    def test_err_method_returns_optional(self) -> None:
-        # With single-param generics, Err.err() returns E directly
+    def test_err_method_returns_some(self) -> None:
+        from unwrappy import Some
+
+        # Err.err() now returns Some[E] for type safety
         result: Err[str] = Err("error")
         error = result.err()
-        assert_type(error, str)
+        assert_type(error, Some[str])
 
     def test_unwrap_or_returns_t(self) -> None:
         result: Result[int, str] = Ok(42)
@@ -1347,3 +1372,136 @@ class TestLazyResultTypes:
         lazy: LazyResult[int, str] = LazyResult.from_result(Ok(42))
         chained = lazy.map(lambda x: x * 2).and_then(validate).map(len)
         assert_type(chained, LazyResult[int, str])  # ty: ignore[type-assertion-failure]
+
+
+class TestContext:
+    """Tests for context() and with_context() error chaining."""
+
+    def test_context_on_ok_returns_self(self) -> None:
+        result = Ok(42).context("some context")
+        assert result == Ok(42)
+
+    def test_context_on_err_wraps_error(self) -> None:
+        from unwrappy import ChainedError
+
+        result = Err("original error").context("parsing config")
+        assert result.is_err()
+        error = result.unwrap_err()
+        assert isinstance(error, ChainedError)
+        assert str(error) == "parsing config: original error"
+
+    def test_context_chaining(self) -> None:
+        from unwrappy import ChainedError
+
+        result = Err("invalid json").context("parsing config").context("loading settings")
+        error = result.unwrap_err()
+        assert isinstance(error, ChainedError)
+        assert str(error) == "loading settings: parsing config: invalid json"
+
+    def test_with_context_on_ok_skips_fn(self) -> None:
+        called = False
+
+        def lazy_context() -> str:
+            nonlocal called
+            called = True
+            return "context"
+
+        result = Ok(42).with_context(lazy_context)
+        assert result == Ok(42)
+        assert called is False  # Function not called for Ok
+
+    def test_with_context_on_err_calls_fn(self) -> None:
+        from unwrappy import ChainedError
+
+        user_id = 123
+        result = Err("not found").with_context(lambda: f"fetching user {user_id}")
+        error = result.unwrap_err()
+        assert isinstance(error, ChainedError)
+        assert str(error) == "fetching user 123: not found"
+
+    def test_chained_error_root_cause(self) -> None:
+        from unwrappy import ChainedError
+
+        result = Err("root").context("level1").context("level2")
+        error = result.unwrap_err()
+        assert isinstance(error, ChainedError)
+        assert error.root_cause() == "root"
+
+    def test_chained_error_chain(self) -> None:
+        from unwrappy import ChainedError
+
+        result = Err("root").context("level1").context("level2")
+        error = result.unwrap_err()
+        assert isinstance(error, ChainedError)
+        assert error.chain() == ["level2", "level1"]
+
+
+class TestFilter:
+    """Tests for filter() method on Result."""
+
+    def test_filter_ok_passes(self) -> None:
+        result = Ok(5).filter(lambda x: x > 0, "must be positive")
+        assert result == Ok(5)
+
+    def test_filter_ok_fails(self) -> None:
+        result = Ok(-1).filter(lambda x: x > 0, "must be positive")
+        assert result == Err("must be positive")
+
+    def test_filter_err_unchanged(self) -> None:
+        result: Result[int, str] = Err("original error")
+        filtered = result.filter(lambda x: x > 0, "validation failed")
+        assert filtered == Err("original error")
+
+    def test_filter_with_complex_predicate(self) -> None:
+        def is_valid_email(s: str) -> bool:
+            return "@" in s and "." in s
+
+        result1 = Ok("user@example.com").filter(is_valid_email, "invalid email")
+        assert result1 == Ok("user@example.com")
+
+        result2 = Ok("invalid").filter(is_valid_email, "invalid email")
+        assert result2 == Err("invalid email")
+
+
+class TestZip:
+    """Tests for zip() and zip_with() methods on Result."""
+
+    def test_zip_ok_ok(self) -> None:
+        result = Ok(1).zip(Ok("a"))
+        assert result == Ok((1, "a"))
+
+    def test_zip_ok_err(self) -> None:
+        result = Ok(1).zip(Err("error"))
+        assert result == Err("error")
+
+    def test_zip_err_ok(self) -> None:
+        result: Result[int, str] = Err("first error")
+        zipped = result.zip(Ok(2))
+        assert zipped == Err("first error")
+
+    def test_zip_err_err(self) -> None:
+        result: Result[int, str] = Err("first")
+        zipped = result.zip(Err("second"))
+        assert zipped == Err("first")  # First error wins
+
+    def test_zip_with_ok_ok(self) -> None:
+        result = Ok(2).zip_with(Ok(3), lambda a, b: a + b)
+        assert result == Ok(5)
+
+    def test_zip_with_ok_err(self) -> None:
+        result = Ok(2).zip_with(Err("error"), lambda a, b: a + b)
+        assert result == Err("error")
+
+    def test_zip_with_err_ok(self) -> None:
+        result: Result[int, str] = Err("error")
+        zipped = result.zip_with(Ok(3), lambda a, b: a + b)
+        assert zipped == Err("error")
+
+    def test_zip_multiple(self) -> None:
+        """Test chaining multiple zips."""
+        a = Ok(1)
+        b = Ok(2)
+        c = Ok(3)
+
+        result = a.zip(b).and_then(lambda t: Ok((*t, c.unwrap())))
+        assert result == Ok((1, 2, 3))

@@ -4,7 +4,7 @@ This document explains the design decisions and architectural choices in unwrapp
 
 ## Design Philosophy
 
-unwrappy brings Rust's `Result` type to Python with these principles:
+unwrappy brings Rust's `Result` and `Option` types to Python with these principles:
 
 1. **Errors as values**: Exceptions are implicit control flow; Result makes errors explicit
 2. **Type safety**: Full generic support for static analysis
@@ -13,7 +13,7 @@ unwrappy brings Rust's `Result` type to Python with these principles:
 
 ## Design Evolution
 
-### Original Design: ABC Pattern (v0.0.1-initial)
+### Original Design: ABC Pattern
 
 The first implementation used an Abstract Base Class pattern:
 
@@ -98,8 +98,12 @@ than shared via ABC, but the type safety benefits far outweigh the duplication.
 Ok[T]    - Success variant (single type parameter)
 Err[E]   - Error variant (single type parameter)
 Result[T, E] = Ok[T] | Err[E]  - Type alias (union)
-
 LazyResult[T, E] - Deferred execution wrapper
+
+Some[T]  - Present variant (single type parameter)
+Nothing  - Absent variant (singleton type)
+Option[T] = Some[T] | Nothing  - Type alias (union)
+LazyOption[T] - Deferred execution wrapper
 ```
 
 ## Key Architectural Decisions
@@ -277,6 +281,67 @@ def parse_config(path: str) -> Result[Config, str]:
 
 This makes error handling visible and intentional at the point where it matters.
 
+### 9. Option Type Design
+
+Option follows the same type alias pattern as Result, with a key distinction: Nothing is a singleton.
+
+#### Nothing as Singleton
+
+```python
+class _NothingType:
+    _instance = None
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+NOTHING = _NothingType()
+Nothing = _NothingType  # Type alias for annotations
+Option: TypeAlias = Some[T] | _NothingType
+```
+
+**Why a singleton?**
+- **Memory efficiency**: All "absent" values share one instance
+- **Identity comparison**: `opt is NOTHING` works reliably
+- **Consistency**: Mirrors Python's `None` singleton pattern
+
+#### Option vs typing.Optional
+
+Python's `Optional[T]` is just `T | None`—it doesn't distinguish between "absent" and "null". Option makes this explicit:
+
+```python
+# typing.Optional - ambiguous
+def get_name() -> str | None:
+    return None  # Is this "no name" or "name is explicitly null"?
+
+# unwrappy.Option - clear distinction
+def get_name() -> Option[str]:
+    return Some("Alice")  # Has a name
+    return NOTHING        # No name
+
+# Advanced: Option[T | None] for three-state logic (e.g., PATCH updates)
+@dataclass
+class UserUpdate:
+    # NOTHING = don't update, Some(None) = set to null, Some(value) = set value
+    name: Option[str | None] = NOTHING
+```
+
+#### Bidirectional Conversion with Result
+
+Option and Result convert cleanly in both directions:
+
+```python
+# Option → Result
+opt.ok_or("missing value")      # Some(x) → Ok(x), NOTHING → Err("missing value")
+opt.ok_or_else(lambda: "err")   # Lazy error creation
+
+# Result → Option
+result.ok()   # Ok(x) → Some(x), Err(_) → NOTHING
+result.err()  # Err(e) → Some(e), Ok(_) → NOTHING
+```
+
+This enables seamless composition between error handling and optional value patterns.
+
 ## Serialization Support
 
 unwrappy provides JSON serialization support through the `serde` module, enabling integration with distributed task frameworks like Celery, Temporal, and DBOS.
@@ -287,7 +352,7 @@ The `unwrappy.serde` module provides JSON encoder/decoder support:
 
 ```python
 import json
-from unwrappy import Ok, Err
+from unwrappy import Ok, Err, Some, NOTHING
 from unwrappy.serde import ResultEncoder, result_decoder, dumps, loads
 
 # Using standard json module
@@ -297,17 +362,23 @@ decoded = json.loads(encoded, object_hook=result_decoder)
 # Using convenience functions
 encoded = dumps(Ok(42))
 decoded = loads(encoded)
+
+# Option types work the same way
+encoded = dumps(Some("hello"))
+decoded = loads(encoded)
 ```
 
 **JSON Format**:
 ```json
 {"__unwrappy_type__": "Ok", "value": 42}
 {"__unwrappy_type__": "Err", "error": "not found"}
+{"__unwrappy_type__": "Some", "value": "hello"}
+{"__unwrappy_type__": "Nothing"}
 ```
 
-### LazyResult Serialization Limitation
+### LazyResult/LazyOption Serialization Limitation
 
-**Important**: LazyResult cannot be serialized because operations contain callables (lambdas, functions) which are not JSON-serializable. Always call `.collect()` first:
+**Important**: LazyResult and LazyOption cannot be serialized because operations contain callables (lambdas, functions) which are not JSON-serializable. Always call `.collect()` first:
 
 ```python
 # This will raise TypeError
@@ -389,10 +460,12 @@ class UnwrappySerializer(Serializer):
 | Feature | Rust | unwrappy |
 |---------|------|----------|
 | Ok/Err variants | ✓ | ✓ |
+| Some/None variants | ✓ | ✓ (Some/Nothing) |
 | Pattern matching | ✓ | ✓ (Python 3.10+) |
 | ? operator | ✓ | ✗ (use and_then) |
 | map/and_then | ✓ | ✓ |
-| Async support | Via futures | Built-in LazyResult |
+| Option ↔ Result | ✓ | ✓ (ok_or, ok, err) |
+| Async support | Via futures | Built-in LazyResult/LazyOption |
 | Zero-cost | ✓ | Runtime overhead |
 
 ## Comparison with Other Python Libraries
@@ -482,13 +555,12 @@ unwrappy prioritizes being a lightweight, dependency-free addition to your proje
 ```
 src/unwrappy/
 ├── __init__.py      # Public API exports
-├── result.py        # Result, Ok, Err, LazyResult, sequence, traverse
-├── option.py        # Option type (placeholder)
-└── exceptions.py    # UnwrapError
+├── result.py        # Result, Ok, Err, LazyResult, sequence_results, traverse_results
+├── option.py        # Option, Some, Nothing, LazyOption, sequence_options, traverse_options
+├── serde.py         # JSON serialization support
+└── exceptions.py    # UnwrapError, ChainedError
 ```
 
 ## Future Considerations
 
-- **Option type**: `Some`/`None` variants for optional values
-- **Try decorator**: Convert exception-raising functions to Result-returning
 - **Async iterators**: Stream processing with Result

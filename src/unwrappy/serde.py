@@ -1,24 +1,30 @@
-"""JSON serialization support for Result types.
+"""JSON serialization support for Result and Option types.
 
-This module provides JSON encoder/decoder support for Ok and Err types.
+This module provides JSON encoder/decoder support for Ok, Err, Some, and Nothing types.
 It uses a tagged format for unambiguous round-trip serialization.
 
 Format:
     Ok(value)  -> {"__unwrappy_type__": "Ok", "value": <value>}
     Err(error) -> {"__unwrappy_type__": "Err", "error": <error>}
+    Some(value) -> {"__unwrappy_type__": "Some", "value": <value>}
+    Nothing    -> {"__unwrappy_type__": "Nothing"}
 
 Example:
     >>> import json
-    >>> from unwrappy import Ok, Err
+    >>> from unwrappy import Ok, Err, Some, NOTHING
     >>> from unwrappy.serde import ResultEncoder, result_decoder
 
     >>> # Encoding
     >>> json.dumps(Ok(42), cls=ResultEncoder)
     '{"__unwrappy_type__": "Ok", "value": 42}'
+    >>> json.dumps(Some(42), cls=ResultEncoder)
+    '{"__unwrappy_type__": "Some", "value": 42}'
 
     >>> # Decoding
     >>> json.loads('{"__unwrappy_type__": "Ok", "value": 42}', object_hook=result_decoder)
     Ok(42)
+    >>> json.loads('{"__unwrappy_type__": "Some", "value": 42}', object_hook=result_decoder)
+    Some(42)
 
     >>> # Round-trip
     >>> original = Err("not found")
@@ -33,27 +39,30 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from unwrappy.option import NOTHING, LazyOption, Some, _NothingType
 from unwrappy.result import Err, LazyResult, Ok
 
 _TYPE_KEY = "__unwrappy_type__"
 
 
 class ResultEncoder(json.JSONEncoder):
-    """JSON encoder for Result types.
+    """JSON encoder for Result and Option types.
 
-    Extends json.JSONEncoder to handle Ok and Err types.
-    Nested Result types are handled recursively.
+    Extends json.JSONEncoder to handle Ok, Err, Some, and Nothing types.
+    Nested types are handled recursively.
 
     Example:
         >>> import json
-        >>> from unwrappy import Ok
+        >>> from unwrappy import Ok, Some
         >>> from unwrappy.serde import ResultEncoder
         >>> json.dumps(Ok({"key": "value"}), cls=ResultEncoder)
         '{"__unwrappy_type__": "Ok", "value": {"key": "value"}}'
+        >>> json.dumps(Some(42), cls=ResultEncoder)
+        '{"__unwrappy_type__": "Some", "value": 42}'
     """
 
     def default(self, o: Any) -> Any:
-        """Encode Result types to JSON-serializable dict.
+        """Encode Result and Option types to JSON-serializable dict.
 
         Args:
             o: Object to encode.
@@ -62,13 +71,19 @@ class ResultEncoder(json.JSONEncoder):
             JSON-serializable representation.
 
         Raises:
-            TypeError: If o is a LazyResult.
+            TypeError: If o is a LazyResult or LazyOption.
         """
         if isinstance(o, Ok):
-            return {_TYPE_KEY: "Ok", "value": o.unwrap()}  # pyright: ignore[reportUnknownVariableType]
+            return {_TYPE_KEY: "Ok", "value": o.unwrap()}
 
         if isinstance(o, Err):
-            return {_TYPE_KEY: "Err", "error": o.unwrap_err()}  # pyright: ignore[reportUnknownVariableType]
+            return {_TYPE_KEY: "Err", "error": o.unwrap_err()}
+
+        if isinstance(o, Some):
+            return {_TYPE_KEY: "Some", "value": o.unwrap()}
+
+        if isinstance(o, _NothingType):
+            return {_TYPE_KEY: "Nothing"}
 
         if isinstance(o, LazyResult):
             raise TypeError(
@@ -76,11 +91,17 @@ class ResultEncoder(json.JSONEncoder):
                 "Call .collect() first to obtain a concrete Result, then serialize that."
             )
 
+        if isinstance(o, LazyOption):
+            raise TypeError(
+                "Cannot JSON serialize LazyOption. "
+                "Call .collect() first to obtain a concrete Option, then serialize that."
+            )
+
         return super().default(o)
 
 
 def result_decoder(dct: dict[str, Any]) -> Any:
-    """JSON object hook to decode Result types.
+    """JSON object hook to decode Result and Option types.
 
     Use as the object_hook parameter to json.loads().
 
@@ -88,13 +109,15 @@ def result_decoder(dct: dict[str, Any]) -> Any:
         dct: Dictionary from JSON parsing.
 
     Returns:
-        Decoded Result type if applicable, otherwise the original dict.
+        Decoded Result or Option type if applicable, otherwise the original dict.
 
     Example:
         >>> import json
         >>> from unwrappy.serde import result_decoder
         >>> json.loads('{"__unwrappy_type__": "Ok", "value": 42}', object_hook=result_decoder)
         Ok(42)
+        >>> json.loads('{"__unwrappy_type__": "Some", "value": 42}', object_hook=result_decoder)
+        Some(42)
     """
     if _TYPE_KEY not in dct:
         return dct
@@ -107,11 +130,17 @@ def result_decoder(dct: dict[str, Any]) -> Any:
     if type_name == "Err":
         return Err(dct["error"])
 
+    if type_name == "Some":
+        return Some(dct["value"])
+
+    if type_name == "Nothing":
+        return NOTHING
+
     return dct
 
 
 class ResultDecoder(json.JSONDecoder):
-    """JSON decoder for Result types.
+    """JSON decoder for Result and Option types.
 
     Alternative to using object_hook with result_decoder.
     Useful when you want a standalone decoder class.
@@ -121,6 +150,8 @@ class ResultDecoder(json.JSONDecoder):
         >>> from unwrappy.serde import ResultDecoder
         >>> json.loads('{"__unwrappy_type__": "Err", "error": "not found"}', cls=ResultDecoder)
         Err('not found')
+        >>> json.loads('{"__unwrappy_type__": "Some", "value": 42}', cls=ResultDecoder)
+        Some(42)
     """
 
     def __init__(self, **kwargs: Any) -> None:
