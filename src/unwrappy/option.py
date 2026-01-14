@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, NoReturn, TypeAlias, Ty
 from unwrappy.exceptions import UnwrapError
 
 if TYPE_CHECKING:
+    from typing_extensions import TypeIs
+
     from unwrappy.result import Err, Ok
 
 T = TypeVar("T", covariant=True)  # Value type for Some
@@ -604,3 +606,51 @@ def from_nullable(value: T | None) -> Some[T] | _NothingType:
     if value is None:
         return NOTHING
     return Some(value)
+
+
+def is_some(option: Some[T] | _NothingType) -> TypeIs[Some[T]]:
+    """Type guard to check if an option is Some.
+
+    Unlike the `.is_some()` method, this standalone function enables
+    proper type narrowing in conditional branches. This is necessary
+    because Python's type system doesn't support narrowing based on
+    method return types.
+
+    Args:
+        option: The Option to check.
+
+    Returns:
+        True if option is Some, with the type narrowed to Some[T].
+
+    Example:
+        >>> from unwrappy import Option, Some, Nothing, is_some
+        >>> def get_value(opt: Option[int]) -> int:
+        ...     if is_some(opt):
+        ...         return opt.unwrap()  # Type checker knows opt is Some[int]
+        ...     return 0
+    """
+    return isinstance(option, Some)
+
+
+def is_nothing(option: Some[T] | _NothingType) -> TypeIs[_NothingType]:
+    """Type guard to check if an option is Nothing.
+
+    Unlike the `.is_nothing()` method, this standalone function enables
+    proper type narrowing in conditional branches. This is necessary
+    because Python's type system doesn't support narrowing based on
+    method return types.
+
+    Args:
+        option: The Option to check.
+
+    Returns:
+        True if option is Nothing, with the type narrowed to _NothingType.
+
+    Example:
+        >>> from unwrappy import Option, Some, Nothing, is_nothing
+        >>> def describe(opt: Option[int]) -> str:
+        ...     if is_nothing(opt):
+        ...         return "empty"  # Type checker knows opt is Nothing
+        ...     return "has value"
+    """
+    return isinstance(option, _NothingType)

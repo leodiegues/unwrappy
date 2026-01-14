@@ -8,10 +8,12 @@ from unwrappy.option import (
     Option,
     Some,
     from_nullable,
+    is_nothing,
+    is_some,
     sequence_options,
     traverse_options,
 )
-from unwrappy.result import Err, LazyResult, Ok, Result, sequence_results, traverse_results
+from unwrappy.result import Err, LazyResult, Ok, Result, is_err, is_ok, sequence_results, traverse_results
 from unwrappy.serde import ResultDecoder, ResultEncoder, dumps, loads, result_decoder
 
 __all__ = [
@@ -22,6 +24,8 @@ __all__ = [
     "LazyResult",
     "sequence_results",
     "traverse_results",
+    "is_ok",
+    "is_err",
     # Option types
     "Option",
     "Some",
@@ -31,6 +35,8 @@ __all__ = [
     "sequence_options",
     "traverse_options",
     "from_nullable",
+    "is_some",
+    "is_nothing",
     # Errors
     "ChainedError",
     # Serialization
