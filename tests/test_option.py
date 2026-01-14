@@ -12,6 +12,8 @@ from unwrappy.exceptions import UnwrapError
 from unwrappy.option import (
     _NothingType,
     from_nullable,
+    is_nothing,
+    is_some,
     sequence_options,
     traverse_options,
 )
@@ -622,3 +624,50 @@ class TestEdgeCases:
         inner = option.unwrap()
         assert isinstance(inner, Some)
         assert inner.unwrap() == 42
+
+
+class TestTypeGuardFunctions:
+    """Tests for is_some and is_nothing type guard functions."""
+
+    def test_is_some_on_some(self) -> None:
+        option: Option[int] = Some(42)
+        assert is_some(option) is True
+
+    def test_is_some_on_nothing(self) -> None:
+        option: Option[int] = NOTHING
+        assert is_some(option) is False
+
+    def test_is_nothing_on_nothing(self) -> None:
+        option: Option[int] = NOTHING
+        assert is_nothing(option) is True
+
+    def test_is_nothing_on_some(self) -> None:
+        option: Option[int] = Some(42)
+        assert is_nothing(option) is False
+
+    def test_is_some_type_narrowing(self) -> None:
+        """Test that is_some narrows the type to Some."""
+        option: Option[int] = Some(int("42"))
+        if is_some(option):
+            # Type checker should know option is Some[int]
+            assert_type(option, Some[int])
+            unwrapped = option.unwrap()
+            assert unwrapped == 42
+
+    def test_is_nothing_type_narrowing(self) -> None:
+        """Test that is_nothing narrows the type to _NothingType."""
+        option: Option[int] = NOTHING
+        if is_nothing(option):
+            # Type checker should know option is _NothingType
+            assert_type(option, _NothingType)
+
+    def test_early_return_pattern(self) -> None:
+        """Test the early return pattern that type guards enable."""
+
+        def double_or_zero(opt: Option[int]) -> int:
+            if is_nothing(opt):
+                return 0
+            return opt.unwrap() * 2
+
+        assert double_or_zero(Some(21)) == 42
+        assert double_or_zero(NOTHING) == 0

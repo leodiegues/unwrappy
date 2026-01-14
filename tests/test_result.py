@@ -11,7 +11,7 @@ from typing_extensions import assert_type
 
 from unwrappy import LazyResult
 from unwrappy.exceptions import UnwrapError
-from unwrappy.result import Err, Ok, Result, sequence_results, traverse_results
+from unwrappy.result import Err, Ok, Result, is_err, is_ok, sequence_results, traverse_results
 
 
 class TestOkBasics:
@@ -1505,3 +1505,52 @@ class TestZip:
 
         result = a.zip(b).and_then(lambda t: Ok((*t, c.unwrap())))
         assert result == Ok((1, 2, 3))
+
+
+class TestTypeGuardFunctions:
+    """Tests for is_ok and is_err type guard functions."""
+
+    def test_is_ok_on_ok(self) -> None:
+        result: Result[int, str] = Ok(42)
+        assert is_ok(result) is True
+
+    def test_is_ok_on_err(self) -> None:
+        result: Result[int, str] = Err("error")
+        assert is_ok(result) is False
+
+    def test_is_err_on_err(self) -> None:
+        result: Result[int, str] = Err("error")
+        assert is_err(result) is True
+
+    def test_is_err_on_ok(self) -> None:
+        result: Result[int, str] = Ok(42)
+        assert is_err(result) is False
+
+    def test_is_ok_type_narrowing(self) -> None:
+        """Test that is_ok narrows the type to Ok."""
+        result: Result[int, str] = Ok(42)
+        if is_ok(result):
+            # Type checker should know result is Ok[int]
+            assert_type(result, Ok[int])
+            value = result.unwrap()
+            assert value == 42
+
+    def test_is_err_type_narrowing(self) -> None:
+        """Test that is_err narrows the type to Err."""
+        result: Result[int, str] = Err("error")
+        if is_err(result):
+            # Type checker should know result is Err[str]
+            assert_type(result, Err[str])
+            error = result.unwrap_err()
+            assert error == "error"
+
+    def test_early_return_pattern(self) -> None:
+        """Test the early return pattern that type guards enable."""
+
+        def process(r: Result[int, str]) -> Result[str, str]:
+            if is_err(r):
+                return r  # No type: ignore needed
+            return Ok(f"value: {r.unwrap()}")
+
+        assert process(Ok(42)) == Ok("value: 42")
+        assert process(Err("fail")) == Err("fail")

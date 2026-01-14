@@ -79,6 +79,9 @@ known-first-party = ["unwrappy"]
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+[tool.ty.src]
+include = ["src", "tests"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 addopts = [ "-vv", "--cov=unwrappy" ]

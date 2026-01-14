@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, NoReturn, TypeAlias, Ty
 from unwrappy.exceptions import ChainedError, UnwrapError
 
 if TYPE_CHECKING:
+    from typing_extensions import TypeIs
+
     from unwrappy.option import Some, _NothingType
 
 T = TypeVar("T", covariant=True)  # Success type for Ok
@@ -608,3 +610,55 @@ def traverse_results(items: Iterable[U], fn: Callable[[U], Ok[T] | Err[E]]) -> O
         Err('invalid: x')
     """
     return sequence_results(fn(item) for item in items)
+
+
+def is_ok(result: Ok[T] | Err[E]) -> TypeIs[Ok[T]]:
+    """Type guard to check if a result is Ok.
+
+    Unlike the `.is_ok()` method, this standalone function enables
+    proper type narrowing in conditional branches. This is necessary
+    because Python's type system doesn't support narrowing based on
+    method return types.
+
+    This pattern is also used by rustedpy/result.
+
+    Args:
+        result: The Result to check.
+
+    Returns:
+        True if result is Ok, with the type narrowed to Ok[T].
+
+    Example:
+        >>> from unwrappy import Result, Ok, Err, is_ok
+        >>> def get_value(r: Result[int, str]) -> int:
+        ...     if is_ok(r):
+        ...         return r.unwrap()  # Type checker knows r is Ok[int]
+        ...     return 0
+    """
+    return isinstance(result, Ok)
+
+
+def is_err(result: Ok[T] | Err[E]) -> TypeIs[Err[E]]:
+    """Type guard to check if a result is Err.
+
+    Unlike the `.is_err()` method, this standalone function enables
+    proper type narrowing in conditional branches. This is necessary
+    because Python's type system doesn't support narrowing based on
+    method return types.
+
+    This pattern is also used by rustedpy/result.
+
+    Args:
+        result: The Result to check.
+
+    Returns:
+        True if result is Err, with the type narrowed to Err[E].
+
+    Example:
+        >>> from unwrappy import Result, Ok, Err, is_err
+        >>> def handle_error(r: Result[int, str]) -> str:
+        ...     if is_err(r):
+        ...         return r.unwrap_err()  # Type checker knows r is Err[str]
+        ...     return "success"
+    """
+    return isinstance(result, Err)
