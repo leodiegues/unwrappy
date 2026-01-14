@@ -310,14 +310,20 @@ Option: TypeAlias = Some[T] | _NothingType
 Python's `Optional[T]` is just `T | None`—it doesn't distinguish between "absent" and "null". Option makes this explicit:
 
 ```python
-# typing.Optional - None is a valid value AND absence indicator
+# typing.Optional - ambiguous
 def get_name() -> str | None:
     return None  # Is this "no name" or "name is explicitly null"?
 
-# unwrappy.Option - Clear distinction
-def get_name() -> Option[str | None]:
-    return Some(None)  # Explicitly null
-    return NOTHING     # Absent
+# unwrappy.Option - clear distinction
+def get_name() -> Option[str]:
+    return Some("Alice")  # Has a name
+    return NOTHING        # No name
+
+# Advanced: Option[T | None] for three-state logic (e.g., PATCH updates)
+@dataclass
+class UserUpdate:
+    # NOTHING = don't update, Some(None) = set to null, Some(value) = set value
+    name: Option[str | None] = NOTHING
 ```
 
 #### Bidirectional Conversion with Result
