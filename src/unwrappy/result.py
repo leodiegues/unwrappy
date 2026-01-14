@@ -3,9 +3,12 @@ from __future__ import annotations
 import inspect
 from collections.abc import Awaitable, Callable, Coroutine, Iterable
 from dataclasses import dataclass
-from typing import Any, Generic, Literal, NoReturn, TypeAlias, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, Literal, NoReturn, TypeAlias, TypeVar, cast
 
-from unwrappy.exceptions import UnwrapError
+from unwrappy.exceptions import ChainedError, UnwrapError
+
+if TYPE_CHECKING:
+    from unwrappy.option import Some, _NothingType
 
 T = TypeVar("T", covariant=True)  # Success type for Ok
 E = TypeVar("E", covariant=True)  # Error type for Err
@@ -37,7 +40,7 @@ class Ok(Generic[T]):
         return f"Ok({self._value!r})"
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, Ok) and self._value == other._value  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+        return isinstance(other, Ok) and self._value == other._value
 
     def is_ok(self) -> Literal[True]:
         """Return True (this is Ok)."""
@@ -75,13 +78,17 @@ class Ok(Generic[T]):
         """Raise UnwrapError with custom message."""
         raise UnwrapError(f"{msg}: {self._value!r}", self._value)
 
-    def ok(self) -> T:
-        """Return the Ok value."""
-        return self._value
+    def ok(self) -> Some[T]:
+        """Return the Ok value wrapped in Some."""
+        from unwrappy.option import Some
 
-    def err(self) -> None:
-        """Return None (no error in Ok)."""
-        return None
+        return Some(self._value)
+
+    def err(self) -> _NothingType:
+        """Return Nothing (no error in Ok)."""
+        from unwrappy.option import NOTHING
+
+        return NOTHING
 
     def map(self, fn: Callable[[T], U]) -> Ok[U]:
         """Transform the Ok value."""
@@ -146,6 +153,32 @@ class Ok(Generic[T]):
         """Return self (no error to recover from)."""
         return self
 
+    def context(self, msg: str) -> Ok[T]:
+        """Return self unchanged (no error to add context to)."""
+        return self
+
+    def with_context(self, fn: Callable[[], str]) -> Ok[T]:
+        """Return self unchanged (no error to add context to)."""
+        return self
+
+    def filter(self, predicate: Callable[[T], bool], error: F) -> Ok[T] | Err[F]:
+        """Return self if predicate passes, otherwise Err with given error."""
+        if predicate(self._value):
+            return self
+        return Err(error)
+
+    def zip(self, other: Ok[U] | Err[F]) -> Ok[tuple[T, U]] | Err[F]:
+        """Combine with another Result into a tuple."""
+        if isinstance(other, Ok):
+            return Ok((self._value, other.unwrap()))
+        return other
+
+    def zip_with(self, other: Ok[U] | Err[F], fn: Callable[[T, U], Any]) -> Ok[Any] | Err[F]:
+        """Combine with another Result using a function."""
+        if isinstance(other, Ok):
+            return Ok(fn(self._value, other.unwrap()))
+        return other
+
 
 class Err(Generic[E]):
     """Error variant of Result containing an error value.
@@ -171,7 +204,7 @@ class Err(Generic[E]):
         return f"Err({self._error!r})"
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, Err) and self._error == other._error  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+        return isinstance(other, Err) and self._error == other._error
 
     def is_ok(self) -> Literal[False]:
         """Return False (this is not Ok)."""
@@ -209,13 +242,17 @@ class Err(Generic[E]):
         """Return the Err value."""
         return self._error
 
-    def ok(self) -> None:
-        """Return None (no value in Err)."""
-        return None
+    def ok(self) -> _NothingType:
+        """Return Nothing (no value in Err)."""
+        from unwrappy.option import NOTHING
 
-    def err(self) -> E:
-        """Return the Err value."""
-        return self._error
+        return NOTHING
+
+    def err(self) -> Some[E]:
+        """Return the Err value wrapped in Some."""
+        from unwrappy.option import Some
+
+        return Some(self._error)
 
     def map(self, fn: Callable[[Any], U]) -> Err[E]:
         """Return self unchanged (no value to transform)."""
@@ -280,61 +317,83 @@ class Err(Generic[E]):
         """Recover from error with async function."""
         return await fn(self._error)
 
+    def context(self, msg: str) -> Err[ChainedError]:
+        """Wrap the error with additional context."""
+        return Err(ChainedError(self._error, msg))
 
-# Result is a type alias for the union of Ok and Err
+    def with_context(self, fn: Callable[[], str]) -> Err[ChainedError]:
+        """Wrap the error with lazily computed context."""
+        return Err(ChainedError(self._error, fn()))
+
+    def filter(self, predicate: Callable[[Any], bool], error: Any) -> Err[E]:
+        """Return self unchanged (already an error)."""
+        return self
+
+    def zip(self, other: Ok[U] | Err[Any]) -> Err[E]:
+        """Return self (first error wins)."""
+        return self
+
+    def zip_with(self, other: Ok[U] | Err[Any], fn: Callable[[Any, U], Any]) -> Err[E]:
+        """Return self (first error wins)."""
+        return self
+
+
 Result: TypeAlias = Ok[T] | Err[E]
+"""Type alias for the union of Ok and Err."""
 
 
 @dataclass(frozen=True, slots=True)
-class MapOp:
+class ResultMapOp:
     """Operation that transforms the Ok value."""
 
     fn: Callable[[Any], Any]
 
 
 @dataclass(frozen=True, slots=True)
-class MapErrOp:
+class ResultMapErrOp:
     """Operation that transforms the Err value."""
 
     fn: Callable[[Any], Any]
 
 
 @dataclass(frozen=True, slots=True)
-class AndThenOp:
+class ResultAndThenOp:
     """Operation that chains a Result-returning function on Ok."""
 
     fn: Callable[[Any], Any]
 
 
 @dataclass(frozen=True, slots=True)
-class OrElseOp:
+class ResultOrElseOp:
     """Operation that chains a Result-returning function on Err."""
 
     fn: Callable[[Any], Any]
 
 
 @dataclass(frozen=True, slots=True)
-class TeeOp:
+class ResultTeeOp:
     """Operation that executes a side effect on Ok."""
 
     fn: Callable[[Any], Any]
 
 
 @dataclass(frozen=True, slots=True)
-class InspectErrOp:
+class ResultInspectErrOp:
     """Operation that executes a side effect on Err."""
 
     fn: Callable[[Any], Any]
 
 
 @dataclass(frozen=True, slots=True)
-class FlattenOp:
+class ResultFlattenOp:
     """Operation that flattens nested Result."""
 
     pass
 
 
-Operation = MapOp | MapErrOp | AndThenOp | OrElseOp | TeeOp | InspectErrOp | FlattenOp
+ResultOperation = (
+    ResultMapOp | ResultMapErrOp | ResultAndThenOp | ResultOrElseOp | ResultTeeOp | ResultInspectErrOp | ResultFlattenOp
+)
 
 
 async def _maybe_await(value: U | Awaitable[U]) -> U:
@@ -385,7 +444,7 @@ class LazyResult(Generic[T, E]):
     def __init__(
         self,
         source: Awaitable[Ok[T] | Err[E]] | Ok[T] | Err[E],
-        operations: tuple[Operation, ...] = (),
+        operations: tuple[ResultOperation, ...] = (),
     ) -> None:
         self._source = source
         self._operations = operations
@@ -410,39 +469,39 @@ class LazyResult(Generic[T, E]):
         """Create LazyResult from a coroutine/awaitable that returns Result."""
         return cls(awaitable)
 
-    def _chain(self, op: Operation) -> LazyResult[Any, Any]:
+    def _chain(self, op: ResultOperation) -> LazyResult[Any, Any]:
         """Internal: create new LazyResult with operation appended."""
         return LazyResult(self._source, (*self._operations, op))
 
     def map(self, fn: Callable[[T], U | Awaitable[U]]) -> LazyResult[U, E]:
         """Transform Ok value. fn can be sync or async."""
-        return cast(LazyResult[U, E], LazyResult(self._source, (*self._operations, MapOp(fn))))
+        return cast(LazyResult[U, E], LazyResult(self._source, (*self._operations, ResultMapOp(fn))))
 
     def map_err(self, fn: Callable[[E], F | Awaitable[F]]) -> LazyResult[T, F]:
         """Transform Err value. fn can be sync or async."""
-        return cast(LazyResult[T, F], LazyResult(self._source, (*self._operations, MapErrOp(fn))))
+        return cast(LazyResult[T, F], LazyResult(self._source, (*self._operations, ResultMapErrOp(fn))))
 
     def and_then(self, fn: Callable[[T], Ok[U] | Err[E] | Awaitable[Ok[U] | Err[E]]]) -> LazyResult[U, E]:
         """Chain Result-returning function. fn can be sync or async."""
-        return cast(LazyResult[U, E], LazyResult(self._source, (*self._operations, AndThenOp(fn))))
+        return cast(LazyResult[U, E], LazyResult(self._source, (*self._operations, ResultAndThenOp(fn))))
 
     def or_else(self, fn: Callable[[E], Ok[T] | Err[F] | Awaitable[Ok[T] | Err[F]]]) -> LazyResult[T, F]:
         """Recover from Err. fn can be sync or async."""
-        return cast(LazyResult[T, F], LazyResult(self._source, (*self._operations, OrElseOp(fn))))
+        return cast(LazyResult[T, F], LazyResult(self._source, (*self._operations, ResultOrElseOp(fn))))
 
     def tee(self, fn: Callable[[T], Any]) -> LazyResult[T, E]:
         """Side effect on Ok value. fn can be sync or async."""
-        return LazyResult(self._source, (*self._operations, TeeOp(fn)))
+        return LazyResult(self._source, (*self._operations, ResultTeeOp(fn)))
 
     inspect = tee
 
     def inspect_err(self, fn: Callable[[E], Any]) -> LazyResult[T, E]:
         """Side effect on Err value. fn can be sync or async."""
-        return LazyResult(self._source, (*self._operations, InspectErrOp(fn)))
+        return LazyResult(self._source, (*self._operations, ResultInspectErrOp(fn)))
 
     def flatten(self: LazyResult[Ok[U] | Err[E], E]) -> LazyResult[U, E]:
         """Flatten nested LazyResult[Result[U, E], E] to LazyResult[U, E]."""
-        return cast(LazyResult[U, E], LazyResult(self._source, (*self._operations, FlattenOp())))
+        return cast(LazyResult[U, E], LazyResult(self._source, (*self._operations, ResultFlattenOp())))
 
     async def collect(self) -> Ok[T] | Err[E]:
         """Execute the lazy chain and return the final Result."""
@@ -453,50 +512,50 @@ class LazyResult(Generic[T, E]):
 
         return result
 
-    async def _execute_op(self, result: Ok[Any] | Err[Any], op: Operation) -> Ok[Any] | Err[Any]:
+    async def _execute_op(self, result: Ok[Any] | Err[Any], op: ResultOperation) -> Ok[Any] | Err[Any]:
         """Execute a single operation on a Result."""
         match op:
-            case MapOp(fn):
+            case ResultMapOp(fn):
                 if result.is_ok():
                     value = await _maybe_await(fn(result.unwrap()))
                     return Ok(value)
                 return result
 
-            case MapErrOp(fn):
+            case ResultMapErrOp(fn):
                 if result.is_err():
                     error = await _maybe_await(fn(result.unwrap_err()))
                     return Err(error)
                 return result
 
-            case AndThenOp(fn):
+            case ResultAndThenOp(fn):
                 if result.is_ok():
                     return await _maybe_await(fn(result.unwrap()))
                 return result
 
-            case OrElseOp(fn):
+            case ResultOrElseOp(fn):
                 if result.is_err():
                     return await _maybe_await(fn(result.unwrap_err()))
                 return result
 
-            case TeeOp(fn):
+            case ResultTeeOp(fn):
                 if result.is_ok():
                     await _maybe_await(fn(result.unwrap()))
                 return result
 
-            case InspectErrOp(fn):
+            case ResultInspectErrOp(fn):
                 if result.is_err():
                     await _maybe_await(fn(result.unwrap_err()))
                 return result
 
-            case FlattenOp():
+            case ResultFlattenOp():
                 if result.is_ok():
                     return result.unwrap()
                 return result
 
-        return result  # Unreachable, but satisfies type checker
+        return result
 
 
-def sequence(results: Iterable[Ok[T] | Err[E]]) -> Ok[list[T]] | Err[E]:
+def sequence_results(results: Iterable[Ok[T] | Err[E]]) -> Ok[list[T]] | Err[E]:
     """Collect an iterable of Results into a Result of list.
 
     Fails fast on the first Err encountered, returning that error.
@@ -524,10 +583,10 @@ def sequence(results: Iterable[Ok[T] | Err[E]]) -> Ok[list[T]] | Err[E]:
     return Ok(values)
 
 
-def traverse(items: Iterable[U], fn: Callable[[U], Ok[T] | Err[E]]) -> Ok[list[T]] | Err[E]:
+def traverse_results(items: Iterable[U], fn: Callable[[U], Ok[T] | Err[E]]) -> Ok[list[T]] | Err[E]:
     """Map a function over items and collect Results.
 
-    Equivalent to `sequence(map(fn, items))` but more efficient.
+    Equivalent to `sequence_results(map(fn, items))` but more efficient.
     Fails fast on the first Err encountered.
 
     Args:
@@ -543,9 +602,9 @@ def traverse(items: Iterable[U], fn: Callable[[U], Ok[T] | Err[E]]) -> Ok[list[T
         ...         return Ok(int(s))
         ...     except ValueError:
         ...         return Err(f"invalid: {s}")
-        >>> traverse(["1", "2", "3"], parse_int)
+        >>> traverse_results(["1", "2", "3"], parse_int)
         Ok([1, 2, 3])
-        >>> traverse(["1", "x", "3"], parse_int)
+        >>> traverse_results(["1", "x", "3"], parse_int)
         Err('invalid: x')
     """
-    return sequence(fn(item) for item in items)
+    return sequence_results(fn(item) for item in items)

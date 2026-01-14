@@ -1,4 +1,4 @@
-"""Tests for JSON serialization of Result types."""
+"""Tests for JSON serialization of Result and Option types."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from unwrappy import Err, LazyResult, Ok, Result
+from unwrappy import NOTHING, Err, LazyOption, LazyResult, Ok, Option, Result, Some
 from unwrappy.serde import (
     ResultDecoder,
     ResultEncoder,
@@ -311,3 +311,182 @@ class TestEdgeCases:
         inner_list = decoded.unwrap()
         assert inner_list[0] == Ok(1)
         assert inner_list[1] == Err("x")
+
+
+class TestOptionEncoder:
+    """Tests for Option type encoding."""
+
+    def test_encode_some_with_int(self) -> None:
+        result = json.dumps(Some(42), cls=ResultEncoder)
+        assert json.loads(result) == {"__unwrappy_type__": "Some", "value": 42}
+
+    def test_encode_some_with_string(self) -> None:
+        result = json.dumps(Some("hello"), cls=ResultEncoder)
+        data = json.loads(result)
+        assert data["__unwrappy_type__"] == "Some"
+        assert data["value"] == "hello"
+
+    def test_encode_some_with_none(self) -> None:
+        result = json.dumps(Some(None), cls=ResultEncoder)
+        data = json.loads(result)
+        assert data["__unwrappy_type__"] == "Some"
+        assert data["value"] is None
+
+    def test_encode_some_with_dict(self) -> None:
+        result = json.dumps(Some({"key": "value"}), cls=ResultEncoder)
+        data = json.loads(result)
+        assert data["value"] == {"key": "value"}
+
+    def test_encode_some_with_list(self) -> None:
+        result = json.dumps(Some([1, 2, 3]), cls=ResultEncoder)
+        data = json.loads(result)
+        assert data["value"] == [1, 2, 3]
+
+    def test_encode_nothing(self) -> None:
+        result = json.dumps(NOTHING, cls=ResultEncoder)
+        assert json.loads(result) == {"__unwrappy_type__": "Nothing"}
+
+    def test_encode_lazy_option_raises(self) -> None:
+        lazy = LazyOption.some(42)
+        with pytest.raises(TypeError) as exc_info:
+            json.dumps(lazy, cls=ResultEncoder)
+        assert "LazyOption" in str(exc_info.value)
+        assert "collect()" in str(exc_info.value)
+
+    def test_encode_nested_option(self) -> None:
+        nested: Option[Option[int]] = Some(Some(42))
+        result = json.dumps(nested, cls=ResultEncoder)
+        data = json.loads(result)
+        assert data["__unwrappy_type__"] == "Some"
+        assert data["value"]["__unwrappy_type__"] == "Some"
+        assert data["value"]["value"] == 42
+
+    def test_encode_list_of_options(self) -> None:
+        options = [Some(1), NOTHING, Some(3)]
+        encoded = json.dumps(options, cls=ResultEncoder)
+        data = json.loads(encoded)
+        assert len(data) == 3
+        assert data[0]["__unwrappy_type__"] == "Some"
+        assert data[1]["__unwrappy_type__"] == "Nothing"
+        assert data[2]["__unwrappy_type__"] == "Some"
+
+
+class TestOptionDecoder:
+    """Tests for Option type decoding."""
+
+    def test_decode_some(self) -> None:
+        json_str = '{"__unwrappy_type__": "Some", "value": 42}'
+        result = json.loads(json_str, object_hook=result_decoder)
+        assert result == Some(42)
+
+    def test_decode_some_with_string(self) -> None:
+        json_str = '{"__unwrappy_type__": "Some", "value": "hello"}'
+        result = json.loads(json_str, object_hook=result_decoder)
+        assert result == Some("hello")
+
+    def test_decode_some_with_none(self) -> None:
+        json_str = '{"__unwrappy_type__": "Some", "value": null}'
+        result = json.loads(json_str, object_hook=result_decoder)
+        assert result == Some(None)
+        assert result.unwrap() is None
+
+    def test_decode_some_with_list(self) -> None:
+        json_str = '{"__unwrappy_type__": "Some", "value": [1, 2, 3]}'
+        result = json.loads(json_str, object_hook=result_decoder)
+        assert result == Some([1, 2, 3])
+
+    def test_decode_some_with_dict(self) -> None:
+        json_str = '{"__unwrappy_type__": "Some", "value": {"key": "value"}}'
+        result = json.loads(json_str, object_hook=result_decoder)
+        assert result == Some({"key": "value"})
+
+    def test_decode_nothing(self) -> None:
+        json_str = '{"__unwrappy_type__": "Nothing"}'
+        result = json.loads(json_str, object_hook=result_decoder)
+        assert result is NOTHING
+
+    def test_decode_nested_option(self) -> None:
+        json_str = """
+        {
+            "__unwrappy_type__": "Some",
+            "value": {
+                "__unwrappy_type__": "Some",
+                "value": 42
+            }
+        }
+        """
+        result = json.loads(json_str, object_hook=result_decoder)
+        assert result == Some(Some(42))
+
+    def test_decode_list_of_options(self) -> None:
+        json_str = """[
+            {"__unwrappy_type__": "Some", "value": 1},
+            {"__unwrappy_type__": "Nothing"},
+            {"__unwrappy_type__": "Some", "value": 3}
+        ]"""
+        result = json.loads(json_str, object_hook=result_decoder)
+        assert result == [Some(1), NOTHING, Some(3)]
+
+
+class TestOptionConvenienceFunctions:
+    """Tests for dumps() and loads() with Option types."""
+
+    def test_dumps_some(self) -> None:
+        result = dumps(Some(42))
+        assert '"__unwrappy_type__": "Some"' in result
+        assert '"value": 42' in result
+
+    def test_dumps_nothing(self) -> None:
+        result = dumps(NOTHING)
+        assert '"__unwrappy_type__": "Nothing"' in result
+
+    def test_loads_some(self) -> None:
+        json_str = '{"__unwrappy_type__": "Some", "value": 42}'
+        result = loads(json_str)
+        assert result == Some(42)
+
+    def test_loads_nothing(self) -> None:
+        json_str = '{"__unwrappy_type__": "Nothing"}'
+        result = loads(json_str)
+        assert result is NOTHING
+
+    def test_roundtrip_some(self) -> None:
+        original = Some({"nested": [1, 2, 3]})
+        encoded = dumps(original)
+        decoded = loads(encoded)
+        assert decoded == original
+
+    def test_roundtrip_nothing(self) -> None:
+        encoded = dumps(NOTHING)
+        decoded = loads(encoded)
+        assert decoded is NOTHING
+
+    def test_roundtrip_nested_option(self) -> None:
+        original: Option[Option[int]] = Some(Some(42))
+        encoded = dumps(original)
+        decoded = loads(encoded)
+        assert decoded == original
+
+
+class TestMixedResultOption:
+    """Tests for mixing Result and Option in serialization."""
+
+    def test_result_containing_option(self) -> None:
+        original = Ok(Some(42))
+        encoded = dumps(original)
+        decoded = loads(encoded)
+        assert decoded == original
+        assert decoded.unwrap() == Some(42)
+
+    def test_option_containing_result(self) -> None:
+        original = Some(Ok(42))
+        encoded = dumps(original)
+        decoded = loads(encoded)
+        assert decoded == original
+        assert decoded.unwrap() == Ok(42)
+
+    def test_list_of_mixed_types(self) -> None:
+        original = [Ok(1), Some(2), Err("x"), NOTHING]
+        encoded = dumps(original)
+        decoded = loads(encoded)
+        assert decoded == original
