@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from importlib.metadata import version
+
 from unwrappy.exceptions import ChainedError
 from unwrappy.option import (
     NOTHING,
@@ -15,6 +17,8 @@ from unwrappy.option import (
 )
 from unwrappy.result import Err, LazyResult, Ok, Result, is_err, is_ok, sequence_results, traverse_results
 from unwrappy.serde import ResultDecoder, ResultEncoder, dumps, loads, result_decoder
+
+__version__ = version("unwrappy")
 
 __all__ = [
     # Result types
@@ -45,4 +49,6 @@ __all__ = [
     "result_decoder",
     "dumps",
     "loads",
+    # Version
+    "__version__",
 ]
