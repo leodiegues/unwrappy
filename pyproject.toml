@@ -1,6 +1,6 @@
 [project]
 name = "unwrappy"
-version = "0.0.1"
+version = "0.1.0"
 description = "Yet another Rust-inspired Result and Option ergonomics brought to Python, enabling safe, expressive error handling with errors as values."
 readme = "README.md"
 authors = [
@@ -24,6 +24,11 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
+
+[project.urls]
+Repository = "https://github.com/leodiegues/unwrappy"
+Documentation = "https://github.com/leodiegues/unwrappy#readme"
+Changelog = "https://github.com/leodiegues/unwrappy/releases"
 
 [build-system]
 requires = ["uv_build>=0.9.5,<0.10.0"]

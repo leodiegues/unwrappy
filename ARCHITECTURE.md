@@ -2,6 +2,169 @@
 
 This document explains the design decisions and architectural choices in unwrappy.
 
+## Introduction
+
+### What Problem Does unwrappy Solve?
+
+Python's exception-based error handling has fundamental issues for complex applications:
+
+1. **Hidden control flow**: Exceptions can be raised anywhere and caught anywhere, making it hard to trace error paths
+2. **Unclear contracts**: Function signatures don't declare what exceptions they raise
+3. **Overly broad catching**: `except Exception` can mask bugs like typos causing `NameError`
+4. **Silent failures**: Forgotten exception handling leads to runtime crashes
+
+unwrappy provides `Result[T, E]` and `Option[T]` types that make errors **explicit values** in your code. Instead of throwing exceptions that might be caught (or not), functions return `Ok(value)` or `Err(error)`—making error handling visible and type-checkable.
+
+### Who Is This For?
+
+unwrappy is designed for Python developers who:
+
+- Want **explicit error handling** without hidden control flow
+- Value **type safety** and use type checkers (pyright, mypy, ty)
+- Come from **Rust, Go, or functional programming** backgrounds
+- Build **business logic** where error paths matter as much as happy paths
+- Need **async support** without callback hell
+
+It's particularly useful in:
+
+- API services where errors need to be translated to HTTP responses
+- Data pipelines where partial failures need explicit handling
+- Domain-driven design where business errors are distinct from infrastructure errors
+
+## Addressing Common Concerns
+
+Python developers often express skepticism about Result/Option libraries. Here's how unwrappy addresses the most common criticisms (many raised in discussions about monadic error handling in Python):
+
+### "This adds complexity and takes away Python's simplicity"
+
+**unwrappy's approach**: Minimal API surface, no magic.
+
+Unlike some Result libraries that introduce decorators, operators, and functional programming jargon, unwrappy uses familiar Python patterns:
+
+```python
+# Feels like isinstance() checks
+if result.is_ok(): # or is_ok(result) for type-checking compliance
+    value = result.unwrap()
+
+# Native Python 3.10+ pattern matching
+match result:
+    case Ok(value):
+        print(f"Got: {value}")
+    case Err(error):
+        print(f"Failed: {error}")
+```
+
+No special operators, no monadic bind syntax, no type-level magic. Just classes with methods.
+
+### "This doesn't fit Python's try-except flow"
+
+**unwrappy's approach**: Explicit boundaries with `unwrap_or_raise()`.
+
+unwrappy doesn't try to eliminate exceptions—it provides **explicit boundaries** between Result-based code and exception-based code:
+
+```python
+# Business logic uses Result
+def get_user(user_id: str) -> Result[User, str]:
+    ...
+
+# API boundary converts to exceptions
+@app.get("/users/{user_id}")
+def get_user_endpoint(user_id: str):
+    result = get_user(user_id)
+    # Explicit conversion at API boundary
+    return result.unwrap_or_raise(lambda e: HTTPException(404, e))
+```
+
+Use Result in your domain logic where explicit error handling matters. Use exceptions at system boundaries (HTTP handlers, CLI entry points) where frameworks expect them.
+
+### "A mixed codebase is annoying to work with"
+
+**unwrappy's approach**: Designed for mixed codebases.
+
+unwrappy explicitly rejects the "all-or-nothing" philosophy. The examples demonstrate:
+
+- FastAPI routes using `HTTPException` (the framework idiom)
+- Service layer returning `Result` (explicit domain errors)
+- External library calls wrapped explicitly where needed
+
+```python
+# Service layer: Result for explicit error handling
+def create_user(data: UserCreate) -> Result[User, ValidationError]:
+    return validate(data).and_then(persist)
+
+# Route: Framework-idiomatic exceptions
+@app.post("/users")
+def create_user_route(data: UserCreate):
+    match create_user(data):
+        case Ok(user):
+            return user
+        case Err(error):
+            raise HTTPException(400, error.message)
+```
+
+### "The @safe decorator gets abused"
+
+**unwrappy's approach**: No `@safe` decorator at all.
+
+Many Result libraries provide decorators like `@safe` or `@as_result` that automatically convert exceptions to `Err`. unwrappy intentionally omits these because:
+
+1. **Decorator stacking problems**: Real code already has `@app.route`, `@login_required`, `@cache`, etc. Adding `@safe` creates "decorators on decorators"
+2. **Hidden behavior**: A decorator silently catching exceptions makes debugging harder
+3. **Overly broad catching**: `@safe` catches all exceptions, including bugs like `NameError` from typos
+
+Instead, unwrappy requires explicit error handling:
+
+```python
+# Explicit: you decide what errors to handle
+def parse_config(path: str) -> Result[Config, str]:
+    try:
+        with open(path) as f:
+            return Ok(json.load(f))
+    except FileNotFoundError:
+        return Err(f"Config not found: {path}")
+    except json.JSONDecodeError as e:
+        return Err(f"Invalid JSON: {e}")
+```
+
+### "Exceptions aren't really gone—they're just wrapped"
+
+**unwrappy's approach**: Exceptions at boundaries, Result for control flow.
+
+This criticism is valid for libraries that try to eliminate exceptions entirely. unwrappy's design acknowledges that:
+
+1. **External libraries raise exceptions**: You can't avoid them
+2. **Framework boundaries expect exceptions**: HTTP 404 should be an exception in FastAPI
+3. **Programmer errors should crash**: `TypeError` and `NameError` shouldn't be caught
+
+unwrappy uses exceptions for what they're good at (signaling unexpected failures at boundaries) and Result for what it's good at (explicit handling of expected error cases in business logic).
+
+The only exception unwrappy raises is `UnwrapError`—and only when you violate the API contract by calling `.unwrap()` on an `Err`.
+
+### "This requires all-or-nothing commitment"
+
+**unwrappy's approach**: Adopt incrementally, use at boundaries you control.
+
+You can use unwrappy in:
+
+- A single module for complex parsing logic
+- Service layer functions while keeping framework idioms elsewhere
+- New code while leaving legacy code unchanged
+
+The `unwrap_or_raise()` method is explicitly designed for gradual adoption—it lets Result-based code interface cleanly with exception-based code.
+
+### "It's not a Python ecosystem staple"
+
+**Valid concern, mitigated by simplicity.**
+
+Unlike heavyweight functional programming libraries, unwrappy is:
+
+- **Zero dependencies**: Just stdlib
+- **~500 lines of code**: Easy to audit and understand
+- **No plugins needed**: Works with any type checker out of the box
+- **No build-time magic**: No metaclasses, no descriptors, no import hooks
+
+If unwrappy were abandoned tomorrow, you could copy-paste the source into your project. The pattern is more important than the library.
+
 ## Design Philosophy
 
 unwrappy brings Rust's `Result` and `Option` types to Python with these principles:
@@ -10,6 +173,20 @@ unwrappy brings Rust's `Result` and `Option` types to Python with these principl
 2. **Type safety**: Full generic support for static analysis
 3. **Functional composition**: Rich combinator API for transformation chains
 4. **Async ergonomics**: LazyResult solves the "async sandwich" problem
+
+## Type System
+
+```
+Ok[T]    - Success variant (single type parameter)
+Err[E]   - Error variant (single type parameter)
+Result[T, E] = Ok[T] | Err[E]  - Type alias (union)
+LazyResult[T, E] - Deferred execution wrapper
+
+Some[T]  - Present variant (single type parameter)
+Nothing  - Absent variant (singleton type)
+Option[T] = Some[T] | Nothing  - Type alias (union)
+LazyOption[T] - Deferred execution wrapper
+```
 
 ## Design Evolution
 
@@ -54,10 +231,6 @@ no information about `E`. This cascaded into:
 - Type narrowing didn't work properly
 - Tests required excessive type annotations
 
-We initially tried suppressing these with `# pyright: ignore` comments and
-relaxed configuration, but this was "fooling pyright" rather than fixing the
-underlying design flaw.
-
 ### Discovery: rustedpy's Approach
 
 Researching how [rustedpy/result](https://github.com/rustedpy/result) handles
@@ -91,20 +264,6 @@ with Python's type system for this use case. The type alias pattern provides:
 
 **Trade-off accepted:** Methods are duplicated in Ok and Err classes rather
 than shared via ABC, but the type safety benefits far outweigh the duplication.
-
-## Type System
-
-```
-Ok[T]    - Success variant (single type parameter)
-Err[E]   - Error variant (single type parameter)
-Result[T, E] = Ok[T] | Err[E]  - Type alias (union)
-LazyResult[T, E] - Deferred execution wrapper
-
-Some[T]  - Present variant (single type parameter)
-Nothing  - Absent variant (singleton type)
-Option[T] = Some[T] | Nothing  - Type alias (union)
-LazyOption[T] - Deferred execution wrapper
-```
 
 ## Key Architectural Decisions
 

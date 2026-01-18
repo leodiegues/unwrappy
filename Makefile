@@ -40,7 +40,7 @@ typecheck-mypy:
 	uv run mypy
 
 .PHONY: typecheck
-typecheck: ty ## Run static type checking
+typecheck: typecheck-ty ## Run static type checking
 
 .PHONY: typecheck-all  ## Run static type checking with ty, Pyright and Mypy
 typecheck-all: typecheck-ty typecheck-pyright typecheck-mypy
@@ -48,23 +48,11 @@ typecheck-all: typecheck-ty typecheck-pyright typecheck-mypy
 .PHONY: test
 test: ## Run tests and collect coverage data
 	COLUMNS=150 uv run pytest
-	@uv run coverage combine
-	@uv run coverage report
 
 .PHONY: testcov
 testcov: test ## Run tests and generate an HTML coverage report
 	@echo "building coverage html"
 	@uv run coverage html
-
-# `--no-strict` so you can build the docs without fixing all warnings
-.PHONY: docs
-docs: ## Build the documentation
-	uv run mkdocs build --no-strict
-
-# `--no-strict` so you can build the docs without fixing all warnings
-.PHONY: docs-serve
-docs-serve: ## Build and serve the documentation
-	uv run mkdocs serve --no-strict
 
 .PHONY: all
 all: format lint typecheck testcov ## Run code formatting, linting, static type checks, and tests with coverage report generation
