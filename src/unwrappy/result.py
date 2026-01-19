@@ -415,10 +415,6 @@ class LazyResult(Generic[T, E]):
     This pattern is inspired by Polars' lazy evaluation - build the
     computation graph, then execute it all at once.
 
-    Type Parameters:
-        T: The success value type.
-        E: The error value type.
-
     Example:
         ```python
         async def fetch_user(id: int) -> Result[User, str]: ...

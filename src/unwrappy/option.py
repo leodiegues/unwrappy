@@ -412,9 +412,6 @@ class LazyOption(Generic[T]):
     `.collect()` is called. All methods accept both sync and async
     functions transparently.
 
-    Type Parameters:
-        T: The value type.
-
     Example:
         ```python
         async def fetch_config(key: str) -> Option[str]: ...
