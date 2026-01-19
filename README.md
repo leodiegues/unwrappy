@@ -1,21 +1,15 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo.svg">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-dark.svg">
-    <img alt="unwrappy" src="docs/assets/logo-dark.svg" width="80">
-  </picture>
-</p>
-
-<p align="center">
-  <a href="https://pypi.org/project/unwrappy/"><img src="https://img.shields.io/pypi/v/unwrappy" alt="PyPI"></a>
-  <a href="https://pypi.org/project/unwrappy/"><img src="https://img.shields.io/pypi/pyversions/unwrappy" alt="Python"></a>
-  <a href="https://github.com/leodiegues/unwrappy/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License"></a>
-  <a href="https://github.com/leodiegues/unwrappy/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/leodiegues/unwrappy/test.yml?label=tests" alt="Tests"></a>
-  <a href="https://leodiegues.github.io/unwrappy"><img src="https://img.shields.io/github/actions/workflow/status/leodiegues/unwrappy/docs.yml?label=docs" alt="Docs"></a>
-  <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff"></a>
-</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-dark.svg">
+  <img alt="unwrappy" src="docs/assets/logo-dark.svg" width="80">
+</picture>
 
 # unwrappy
+
+[![PyPI](https://img.shields.io/pypi/v/unwrappy?style=for-the-badge&colorA=d2ccb8&colorB=423e31)](https://pypi.org/project/unwrappy/)
+[![Python](https://img.shields.io/pypi/pyversions/unwrappy?style=for-the-badge&colorA=d2ccb8&colorB=423e31)](https://pypi.org/project/unwrappy/)
+[![License](https://img.shields.io/badge/license-MIT-423e31?style=for-the-badge&colorA=d2ccb8&colorB=423e31)](https://github.com/leodiegues/unwrappy/blob/main/LICENSE)
+[![Tests](https://img.shields.io/github/actions/workflow/status/leodiegues/unwrappy/test.yml?label=tests&style=for-the-badge&colorA=d2ccb8&colorB=423e31)](https://github.com/leodiegues/unwrappy/actions/workflows/test.yml)
 
 Rust-inspired `Result` and `Option` types for Python, enabling safe, expressive error handling with errors as values.
 
