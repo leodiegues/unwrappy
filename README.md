@@ -1,4 +1,15 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-dark.svg">
+  <img alt="unwrappy" src="docs/assets/logo-dark.svg" width="80">
+</picture>
+
 # unwrappy
+
+[![PyPI](https://img.shields.io/pypi/v/unwrappy?style=for-the-badge&colorA=d2ccb8&colorB=423e31)](https://pypi.org/project/unwrappy/)
+[![Python](https://img.shields.io/pypi/pyversions/unwrappy?style=for-the-badge&colorA=d2ccb8&colorB=423e31)](https://pypi.org/project/unwrappy/)
+[![License](https://img.shields.io/badge/license-MIT-423e31?style=for-the-badge&colorA=d2ccb8&colorB=423e31)](https://github.com/leodiegues/unwrappy/blob/main/LICENSE)
+[![Tests](https://img.shields.io/github/actions/workflow/status/leodiegues/unwrappy/test.yml?label=tests&style=for-the-badge&colorA=d2ccb8&colorB=423e31)](https://github.com/leodiegues/unwrappy/actions/workflows/test.yml)
 
 Rust-inspired `Result` and `Option` types for Python, enabling safe, expressive error handling with errors as values.
 

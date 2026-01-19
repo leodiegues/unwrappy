@@ -27,7 +27,7 @@ classifiers = [
 
 [project.urls]
 Repository = "https://github.com/leodiegues/unwrappy"
-Documentation = "https://github.com/leodiegues/unwrappy#readme"
+Documentation = "https://leodiegues.github.io/unwrappy"
 Changelog = "https://github.com/leodiegues/unwrappy/releases"
 
 [build-system]
@@ -44,6 +44,12 @@ dev = [
     "ruff>=0.14.11",
     "ty>=0.0.11",
     "typing-extensions>=4.12.0",
+]
+docs = [
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.27",
+    "pillow>=10.0",
+    "cairosvg>=2.7",
 ]
 
 [tool.ruff]

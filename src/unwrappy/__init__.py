@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from importlib.metadata import version
 
-from unwrappy.exceptions import ChainedError
+from unwrappy.exceptions import ChainedError, UnwrapError
 from unwrappy.option import (
     NOTHING,
     LazyOption,
@@ -42,6 +42,7 @@ __all__ = [
     "is_some",
     "is_nothing",
     # Errors
+    "UnwrapError",
     "ChainedError",
     # Serialization
     "ResultEncoder",
