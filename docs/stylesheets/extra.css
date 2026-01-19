@@ -1,0 +1,602 @@
+/*
+ * Sharp Solarized Theme for unwrappy
+ *
+ * Based on Sharp Solarized Zed theme by tinytinytinytiny and Josh Spicer.
+ * A warm, paper-like, high-contrast light theme with burnt red accents.
+ */
+
+/* ==========================================================================
+   Sharp Solarized Color Palette
+   ==========================================================================
+   Backgrounds (light to dark):
+   - #fcfaf3 - brightest (hover, active line)
+   - #f7f4e8 - editor background (paper white)
+   - #ebe6d6 - surface, panels (cream)
+   - #d2ccb8 - sidebar, tab bar (tan/beige)
+
+   Text:
+   - #000000 - primary text (pure black)
+   - #767470 - muted text, comments
+   - #ada68f - placeholder, line numbers
+
+   Accents:
+   - #423e31 - dark brown (headers, active elements)
+   - #b02402 - burnt red (links, strings, accent)
+
+   Borders:
+   - #232018 - primary border (very dark)
+   - #d2ccb8 - light border
+   - #cbc9c3 - disabled border
+
+   Semantic:
+   - #cd3131 - error, red
+   - #147641 - success, green
+   - #cd9731 - warning, yellow
+   - #316bcd - info, blue
+
+   Syntax:
+   - #978d72 - brackets (muted tan)
+   ========================================================================== */
+
+:root {
+  /* Sharp Solarized Palette */
+  --sharp-bg-brightest: #fcfaf3;
+  --sharp-bg-editor: #f7f4e8;
+  --sharp-bg-surface: #ebe6d6;
+  --sharp-bg-sidebar: #d2ccb8;
+
+  --sharp-text: #000000;
+  --sharp-text-muted: #767470;
+  --sharp-text-placeholder: #ada68f;
+
+  --sharp-accent-brown: #423e31;
+  --sharp-accent-red: #b02402;
+
+  --sharp-border-dark: #232018;
+  --sharp-border-light: #d2ccb8;
+  --sharp-border-disabled: #cbc9c3;
+
+  --sharp-red: #cd3131;
+  --sharp-green: #147641;
+  --sharp-yellow: #cd9731;
+  --sharp-blue: #316bcd;
+
+  --sharp-bracket: #978d72;
+
+  /* Warm Paper Dark mode */
+  --sharp-dark-bg: #2a2722;
+  --sharp-dark-surface: #353230;
+  --sharp-dark-elevated: #403c38;
+  --sharp-dark-hover: #4a4642;
+  --sharp-dark-text: #ebe6d6;
+  --sharp-dark-text-secondary: #d2ccb8;
+  --sharp-dark-accent: #d4836a;
+  --sharp-dark-accent-hover: #e09880;
+}
+
+/* ==========================================================================
+   Light Mode - Sharp Solarized
+   ========================================================================== */
+
+[data-md-color-scheme="solarized-light"] {
+  /* Background colors - warm paper tones */
+  --md-default-bg-color: #f7f4e8;
+  --md-default-bg-color--light: #ebe6d6;
+  --md-default-bg-color--lighter: #fcfaf3;
+  --md-default-bg-color--lightest: #fcfaf3;
+
+  /* Foreground/text colors - high contrast black */
+  --md-default-fg-color: #000000;
+  --md-default-fg-color--light: #767470;
+  --md-default-fg-color--lighter: #ada68f;
+  --md-default-fg-color--lightest: #cbc9c3;
+
+  /* Primary color - Dark brown (headers, active elements) */
+  --md-primary-fg-color: #423e31;
+  --md-primary-fg-color--light: #5a554a;
+  --md-primary-fg-color--dark: #232018;
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: #f7f4e8;
+
+  /* Accent color - Burnt red (links, highlights) */
+  --md-accent-fg-color: #b02402;
+  --md-accent-fg-color--transparent: rgba(176, 36, 2, 0.1);
+  --md-accent-bg-color: #f7f4e8;
+  --md-accent-bg-color--light: #fcfaf3;
+
+  /* Code blocks */
+  --md-code-fg-color: #000000;
+  --md-code-bg-color: #ebe6d6;
+  --md-code-hl-color: rgba(66, 62, 49, 0.15);
+  --md-code-hl-number-color: #000000;
+  --md-code-hl-special-color: #b02402;
+  --md-code-hl-function-color: #000000;
+  --md-code-hl-constant-color: #000000;
+  --md-code-hl-keyword-color: #000000;
+  --md-code-hl-string-color: #b02402;
+  --md-code-hl-name-color: #000000;
+  --md-code-hl-operator-color: #000000;
+  --md-code-hl-punctuation-color: #978d72;
+  --md-code-hl-comment-color: #767470;
+  --md-code-hl-generic-color: #000000;
+  --md-code-hl-variable-color: #000000;
+
+  /* Typeset links */
+  --md-typeset-a-color: #b02402;
+
+  /* Footer */
+  --md-footer-bg-color: #423e31;
+  --md-footer-bg-color--dark: #232018;
+  --md-footer-fg-color: #f8f3e8;
+  --md-footer-fg-color--light: #ebe6d6;
+  --md-footer-fg-color--lighter: #d2ccb8;
+
+  /* Tables */
+  --md-typeset-table-color: rgba(0, 0, 0, 0.05);
+
+  /* Admonitions */
+  --md-admonition-bg-color: #ebe6d6;
+}
+
+/* ==========================================================================
+   Dark Mode - Warm Paper Dark
+   A cozy dark theme with warm brown backgrounds and cream text.
+   Like reading aged paper by candlelight.
+   ========================================================================== */
+
+[data-md-color-scheme="slate"] {
+  /* Background colors - warm brown tones */
+  --md-default-bg-color: #2a2722;
+  --md-default-bg-color--light: #353230;
+  --md-default-bg-color--lighter: #403c38;
+  --md-default-bg-color--lightest: #4a4642;
+
+  /* Foreground/text colors - cream/beige (inverted from light mode) */
+  --md-default-fg-color: #ebe6d6;
+  --md-default-fg-color--light: #d2ccb8;
+  --md-default-fg-color--lighter: #ada68f;
+  --md-default-fg-color--lightest: #867f6f;
+
+  /* Primary color - Soft coral (warm, readable) */
+  --md-primary-fg-color: #d4836a;
+  --md-primary-fg-color--light: #e09880;
+  --md-primary-fg-color--dark: #b86d55;
+  --md-primary-bg-color: #2a2722;
+  --md-primary-bg-color--light: #353230;
+
+  /* Accent color - Soft coral for links */
+  --md-accent-fg-color: #d4836a;
+  --md-accent-fg-color--transparent: rgba(212, 131, 106, 0.15);
+  --md-accent-bg-color: #2a2722;
+  --md-accent-bg-color--light: #353230;
+
+  /* Code blocks */
+  --md-code-fg-color: #ebe6d6;
+  --md-code-bg-color: #232018;
+  --md-code-hl-color: rgba(212, 131, 106, 0.15);
+  --md-code-hl-number-color: #ebe6d6;
+  --md-code-hl-special-color: #d4836a;
+  --md-code-hl-function-color: #ebe6d6;
+  --md-code-hl-constant-color: #ebe6d6;
+  --md-code-hl-keyword-color: #ebe6d6;
+  --md-code-hl-string-color: #d4836a;
+  --md-code-hl-name-color: #ebe6d6;
+  --md-code-hl-operator-color: #d2ccb8;
+  --md-code-hl-punctuation-color: #ada68f;
+  --md-code-hl-comment-color: #867f6f;
+  --md-code-hl-generic-color: #ebe6d6;
+  --md-code-hl-variable-color: #ebe6d6;
+
+  /* Typeset links */
+  --md-typeset-a-color: #d4836a;
+
+  /* Footer - slightly darker than main bg */
+  --md-footer-bg-color: #232018;
+  --md-footer-bg-color--dark: #1a1712;
+  --md-footer-fg-color: #ebe6d6;
+  --md-footer-fg-color--light: #d2ccb8;
+  --md-footer-fg-color--lighter: #ada68f;
+
+  /* Tables */
+  --md-typeset-table-color: rgba(235, 230, 214, 0.05);
+
+  /* Admonitions */
+  --md-admonition-bg-color: #232018;
+}
+
+/* ==========================================================================
+   Typography & General Styles
+   ========================================================================== */
+
+/* Sharp, high-contrast headings */
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.md-typeset h1 {
+  color: var(--md-primary-fg-color);
+}
+
+/* Code styling */
+.md-typeset code {
+  border-radius: 2px;
+  font-weight: 500;
+}
+
+.md-typeset pre {
+  border-radius: 0;
+  border-left: 3px solid var(--md-primary-fg-color);
+}
+
+[data-md-color-scheme="slate"] .md-typeset pre {
+  border-left-color: #d4836a;
+}
+
+/* Remove left border from code blocks inside admonitions */
+.md-typeset .admonition pre,
+.md-typeset details pre {
+  border-left: none;
+}
+
+/* Bold keywords in code (matching Zed theme) */
+.md-typeset .highlight .k,   /* keyword */
+.md-typeset .highlight .kn,  /* keyword namespace */
+.md-typeset .highlight .kd,  /* keyword declaration */
+.md-typeset .highlight .kc,  /* keyword constant */
+.md-typeset .highlight .bp   /* boolean/builtin pseudo */ {
+  font-weight: 700;
+}
+
+/* Italic comments */
+.md-typeset .highlight .c,   /* comment */
+.md-typeset .highlight .c1,  /* comment single */
+.md-typeset .highlight .cm,  /* comment multiline */
+.md-typeset .highlight .cs   /* comment special */ {
+  font-style: italic;
+}
+
+/* Table styling - Sharp Solarized look */
+.md-typeset table:not([class]) {
+  border: 1px solid var(--sharp-border-light);
+  border-radius: 0;
+}
+
+.md-typeset table:not([class]) th {
+  background-color: var(--md-primary-fg-color);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) th {
+  background-color: #403c38;
+  color: #ebe6d6;
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) td {
+  border-color: #353230;
+}
+
+.md-typeset table:not([class]) td {
+  border-color: var(--sharp-border-light);
+}
+
+/* ==========================================================================
+   Header - Dark brown like active tab
+   ========================================================================== */
+
+/* Unified top bar for both light and dark mode */
+.md-header {
+  background-color: #2a2722;
+}
+
+.md-tabs {
+  background-color: #2a2722;
+}
+
+.md-tabs__link {
+  color: #d2ccb8;
+}
+
+.md-tabs__link--active,
+.md-tabs__link:hover {
+  color: #ebe6d6;
+}
+
+/* Header text and icons - same for both modes */
+.md-header__title,
+.md-header__topic,
+.md-header__ellipsis,
+.md-header .md-logo,
+.md-header__button,
+.md-header__source,
+.md-header [data-md-component="source"],
+.md-header .md-icon,
+.md-header svg {
+  color: #ebe6d6;
+  fill: #ebe6d6;
+}
+
+.md-header__option,
+.md-header__button:hover {
+  color: #d4836a;
+}
+
+.md-header__title {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Search bar - same for both modes */
+.md-search__input {
+  background-color: #353230;
+  color: #ebe6d6;
+}
+
+.md-search__input::placeholder {
+  color: #ada68f;
+}
+
+/* ==========================================================================
+   Navigation
+   ========================================================================== */
+
+.md-nav__link--active,
+.md-nav__link:hover {
+  color: var(--md-accent-fg-color);
+}
+
+.md-tabs__link--active,
+.md-tabs__link:hover {
+  color: var(--md-accent-fg-color);
+}
+
+/* Active tab styling */
+.md-tabs__link--active {
+  border-bottom: 2px solid var(--md-accent-fg-color);
+}
+
+/* ==========================================================================
+   Admonitions
+   ========================================================================== */
+
+/* Note - Blue */
+.md-typeset .admonition.note,
+.md-typeset details.note {
+  border-color: #316bcd;
+}
+
+.md-typeset .note > .admonition-title,
+.md-typeset .note > summary {
+  background-color: rgba(49, 107, 205, 0.1);
+  border-color: #316bcd;
+}
+
+.md-typeset .note > .admonition-title::before,
+.md-typeset .note > summary::before {
+  background-color: #316bcd;
+}
+
+/* Tip - Green */
+.md-typeset .admonition.tip,
+.md-typeset details.tip {
+  border-color: #147641;
+}
+
+.md-typeset .tip > .admonition-title,
+.md-typeset .tip > summary {
+  background-color: rgba(20, 118, 65, 0.1);
+  border-color: #147641;
+}
+
+.md-typeset .tip > .admonition-title::before,
+.md-typeset .tip > summary::before {
+  background-color: #147641;
+}
+
+/* Warning - Yellow */
+.md-typeset .admonition.warning,
+.md-typeset details.warning {
+  border-color: #cd9731;
+}
+
+.md-typeset .warning > .admonition-title,
+.md-typeset .warning > summary {
+  background-color: rgba(205, 151, 49, 0.1);
+  border-color: #cd9731;
+}
+
+.md-typeset .warning > .admonition-title::before,
+.md-typeset .warning > summary::before {
+  background-color: #cd9731;
+}
+
+/* Danger - Red */
+.md-typeset .admonition.danger,
+.md-typeset details.danger {
+  border-color: #cd3131;
+}
+
+.md-typeset .danger > .admonition-title,
+.md-typeset .danger > summary {
+  background-color: rgba(205, 49, 49, 0.1);
+  border-color: #cd3131;
+}
+
+.md-typeset .danger > .admonition-title::before,
+.md-typeset .danger > summary::before {
+  background-color: #cd3131;
+}
+
+/* Example - Dark brown */
+.md-typeset .admonition.example,
+.md-typeset details.example {
+  border-color: #423e31;
+}
+
+.md-typeset .example > .admonition-title,
+.md-typeset .example > summary {
+  background-color: rgba(66, 62, 49, 0.1);
+  border-color: #423e31;
+}
+
+.md-typeset .example > .admonition-title::before,
+.md-typeset .example > summary::before {
+  background-color: #423e31;
+}
+
+/* Info - Blue */
+.md-typeset .admonition.info,
+.md-typeset details.info {
+  border-color: #316bcd;
+}
+
+.md-typeset .info > .admonition-title,
+.md-typeset .info > summary {
+  background-color: rgba(49, 107, 205, 0.1);
+  border-color: #316bcd;
+}
+
+.md-typeset .info > .admonition-title::before,
+.md-typeset .info > summary::before {
+  background-color: #316bcd;
+}
+
+/* Important - Burnt red */
+.md-typeset .admonition.important,
+.md-typeset details.important {
+  border-color: #b02402;
+}
+
+.md-typeset .important > .admonition-title,
+.md-typeset .important > summary {
+  background-color: rgba(176, 36, 2, 0.1);
+  border-color: #b02402;
+}
+
+.md-typeset .important > .admonition-title::before,
+.md-typeset .important > summary::before {
+  background-color: #b02402;
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.md-typeset .md-button {
+  border-radius: 0;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  border-width: 2px;
+}
+
+.md-typeset .md-button--primary {
+  background-color: var(--md-primary-fg-color);
+  border-color: var(--md-primary-fg-color);
+  color: #ffffff;
+}
+
+.md-typeset .md-button--primary:hover {
+  background-color: var(--md-primary-fg-color--dark);
+  border-color: var(--md-primary-fg-color--dark);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--primary {
+  background-color: #d4836a;
+  border-color: #d4836a;
+  color: #232018;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--primary:hover {
+  background-color: #e09880;
+  border-color: #e09880;
+}
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
+
+.md-footer {
+  background-color: var(--md-footer-bg-color);
+}
+
+.md-footer-meta {
+  background-color: var(--md-footer-bg-color--dark);
+}
+
+/* ==========================================================================
+   Scrollbar (matches Zed theme)
+   ========================================================================== */
+
+.md-sidebar__scrollwrap {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(66, 62, 49, 0.3) transparent;
+}
+
+[data-md-color-scheme="slate"] .md-sidebar__scrollwrap {
+  scrollbar-color: rgba(248, 243, 232, 0.3) transparent;
+}
+
+/* ==========================================================================
+   API Documentation (mkdocstrings)
+   ========================================================================== */
+
+.doc-heading {
+  border-bottom: 2px solid var(--md-primary-fg-color);
+  padding-bottom: 0.5rem;
+}
+
+.doc-signature {
+  background-color: var(--md-code-bg-color);
+  padding: 0.5rem 1rem;
+  border-radius: 0;
+  border-left: 3px solid var(--md-primary-fg-color);
+}
+
+.doc-section-title {
+  color: var(--md-primary-fg-color);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+}
+
+/* ==========================================================================
+   Cards (for landing page grid)
+   ========================================================================== */
+
+.md-typeset .grid.cards > ul > li {
+  border: 1px solid var(--sharp-border-light);
+  border-radius: 0;
+}
+
+.md-typeset .grid.cards > ul > li:hover {
+  border-color: var(--md-primary-fg-color);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .grid.cards > ul > li {
+  border-color: #353230;
+  background-color: #353230;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .grid.cards > ul > li:hover {
+  border-color: #d4836a;
+}
+
+/* ==========================================================================
+   Content tabs
+   ========================================================================== */
+
+.md-typeset .tabbed-labels > label {
+  border-radius: 0;
+}
+
+.md-typeset .tabbed-labels > label:hover {
+  color: var(--md-accent-fg-color);
+}

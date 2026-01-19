@@ -25,11 +25,11 @@ class Ok(Generic[T]):
         value: The success value to wrap.
 
     Example:
-        >>> result = Ok(42)
-        >>> result.unwrap()
-        42
-        >>> result.is_ok()
-        True
+        ```python
+        result = Ok(42)
+        result.unwrap()  # 42
+        result.is_ok()  # True
+        ```
     """
 
     __slots__ = ("_value",)
@@ -189,11 +189,11 @@ class Err(Generic[E]):
         error: The error value to wrap.
 
     Example:
-        >>> result = Err("something went wrong")
-        >>> result.unwrap_err()
-        'something went wrong'
-        >>> result.is_err()
-        True
+        ```python
+        result = Err("something went wrong")
+        result.unwrap_err()  # 'something went wrong'
+        result.is_err()  # True
+        ```
     """
 
     __slots__ = ("_error",)
@@ -420,21 +420,24 @@ class LazyResult(Generic[T, E]):
         E: The error value type.
 
     Example:
-        >>> async def fetch_user(id: int) -> Result[User, str]: ...
-        >>> async def fetch_profile(user: User) -> Result[Profile, str]: ...
-        >>>
-        >>> result = await (
-        ...     LazyResult.from_awaitable(fetch_user(42))
-        ...     .and_then(fetch_profile)   # Async function
-        ...     .map(lambda p: p.name)     # Sync function
-        ...     .tee(print)                # Side effect
-        ...     .collect()
-        ... )
+        ```python
+        async def fetch_user(id: int) -> Result[User, str]: ...
+        async def fetch_profile(user: User) -> Result[Profile, str]: ...
+
+        result = await (
+            LazyResult.from_awaitable(fetch_user(42))
+            .and_then(fetch_profile)   # Async function
+            .map(lambda p: p.name)     # Sync function
+            .tee(print)                # Side effect
+            .collect()
+        )
+        ```
 
     From an existing Result:
-        >>> result = await Ok(5).lazy().map(lambda x: x * 2).collect()
-        >>> result
-        Ok(10)
+        ```python
+        result = await Ok(5).lazy().map(lambda x: x * 2).collect()
+        result  # Ok(10)
+        ```
 
     Note:
         Operations are stored as frozen dataclasses and executed
@@ -570,12 +573,11 @@ def sequence_results(results: Iterable[Ok[T] | Err[E]]) -> Ok[list[T]] | Err[E]:
         Ok(list) if all are Ok, otherwise the first Err.
 
     Example:
-        >>> sequence([Ok(1), Ok(2), Ok(3)])
-        Ok([1, 2, 3])
-        >>> sequence([Ok(1), Err("fail"), Ok(3)])
-        Err('fail')
-        >>> sequence([])
-        Ok([])
+        ```python
+        sequence_results([Ok(1), Ok(2), Ok(3)])  # Ok([1, 2, 3])
+        sequence_results([Ok(1), Err("fail"), Ok(3)])  # Err('fail')
+        sequence_results([])  # Ok([])
+        ```
     """
     values: list[T] = []
     for r in results:
@@ -599,15 +601,16 @@ def traverse_results(items: Iterable[U], fn: Callable[[U], Ok[T] | Err[E]]) -> O
         Ok(list) if all succeed, otherwise the first Err.
 
     Example:
-        >>> def parse_int(s: str) -> Result[int, str]:
-        ...     try:
-        ...         return Ok(int(s))
-        ...     except ValueError:
-        ...         return Err(f"invalid: {s}")
-        >>> traverse_results(["1", "2", "3"], parse_int)
-        Ok([1, 2, 3])
-        >>> traverse_results(["1", "x", "3"], parse_int)
-        Err('invalid: x')
+        ```python
+        def parse_int(s: str) -> Result[int, str]:
+            try:
+                return Ok(int(s))
+            except ValueError:
+                return Err(f"invalid: {s}")
+
+        traverse_results(["1", "2", "3"], parse_int)  # Ok([1, 2, 3])
+        traverse_results(["1", "x", "3"], parse_int)  # Err('invalid: x')
+        ```
     """
     return sequence_results(fn(item) for item in items)
 
@@ -629,11 +632,14 @@ def is_ok(result: Ok[T] | Err[E]) -> TypeIs[Ok[T]]:
         True if result is Ok, with the type narrowed to Ok[T].
 
     Example:
-        >>> from unwrappy import Result, Ok, Err, is_ok
-        >>> def get_value(r: Result[int, str]) -> int:
-        ...     if is_ok(r):
-        ...         return r.unwrap()  # Type checker knows r is Ok[int]
-        ...     return 0
+        ```python
+        from unwrappy import Result, Ok, Err, is_ok
+
+        def get_value(r: Result[int, str]) -> int:
+            if is_ok(r):
+                return r.unwrap()  # Type checker knows r is Ok[int]
+            return 0
+        ```
     """
     return isinstance(result, Ok)
 
@@ -655,10 +661,13 @@ def is_err(result: Ok[T] | Err[E]) -> TypeIs[Err[E]]:
         True if result is Err, with the type narrowed to Err[E].
 
     Example:
-        >>> from unwrappy import Result, Ok, Err, is_err
-        >>> def handle_error(r: Result[int, str]) -> str:
-        ...     if is_err(r):
-        ...         return r.unwrap_err()  # Type checker knows r is Err[str]
-        ...     return "success"
+        ```python
+        from unwrappy import Result, Ok, Err, is_err
+
+        def handle_error(r: Result[int, str]) -> str:
+            if is_err(r):
+                return r.unwrap_err()  # Type checker knows r is Err[str]
+            return "success"
+        ```
     """
     return isinstance(result, Err)

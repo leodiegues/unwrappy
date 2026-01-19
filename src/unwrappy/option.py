@@ -30,11 +30,11 @@ class Some(Generic[T]):
         value: The value to wrap.
 
     Example:
-        >>> option = Some(42)
-        >>> option.unwrap()
-        42
-        >>> option.is_some()
-        True
+        ```python
+        option = Some(42)
+        option.unwrap()  # 42
+        option.is_some()  # True
+        ```
     """
 
     __slots__ = ("_value",)
@@ -184,11 +184,11 @@ class _NothingType:
     This is a singleton class. Use the NOTHING constant.
 
     Example:
-        >>> option = NOTHING
-        >>> option.is_nothing()
-        True
-        >>> option.unwrap_or(0)
-        0
+        ```python
+        option = NOTHING
+        option.is_nothing()  # True
+        option.unwrap_or(0)  # 0
+        ```
     """
 
     __slots__ = ()
@@ -416,19 +416,22 @@ class LazyOption(Generic[T]):
         T: The value type.
 
     Example:
-        >>> async def fetch_config(key: str) -> Option[str]: ...
-        >>>
-        >>> result = await (
-        ...     LazyOption.from_awaitable(fetch_config("api_key"))
-        ...     .map(str.upper)
-        ...     .filter(lambda s: len(s) > 0)
-        ...     .collect()
-        ... )
+        ```python
+        async def fetch_config(key: str) -> Option[str]: ...
+
+        result = await (
+            LazyOption.from_awaitable(fetch_config("api_key"))
+            .map(str.upper)
+            .filter(lambda s: len(s) > 0)
+            .collect()
+        )
+        ```
 
     From an existing Option:
-        >>> result = await Some(5).lazy().map(lambda x: x * 2).collect()
-        >>> result
-        Some(10)
+        ```python
+        result = await Some(5).lazy().map(lambda x: x * 2).collect()
+        result  # Some(10)
+        ```
     """
 
     __slots__ = ("_source", "_operations")
@@ -549,12 +552,11 @@ def sequence_options(options: Iterable[Some[T] | _NothingType]) -> Some[list[T]]
         Some(list) if all are Some, otherwise Nothing.
 
     Example:
-        >>> sequence_options([Some(1), Some(2), Some(3)])
-        Some([1, 2, 3])
-        >>> sequence_options([Some(1), NOTHING, Some(3)])
-        Nothing
-        >>> sequence_options([])
-        Some([])
+        ```python
+        sequence_options([Some(1), Some(2), Some(3)])  # Some([1, 2, 3])
+        sequence_options([Some(1), NOTHING, Some(3)])  # Nothing
+        sequence_options([])  # Some([])
+        ```
     """
     values: list[T] = []
     for opt in options:
@@ -578,12 +580,13 @@ def traverse_options(items: Iterable[U], fn: Callable[[U], Some[T] | _NothingTyp
         Some(list) if all succeed, otherwise Nothing.
 
     Example:
-        >>> def safe_sqrt(x: float) -> Option[float]:
-        ...     return Some(x ** 0.5) if x >= 0 else NOTHING
-        >>> traverse_options([4, 9, 16], safe_sqrt)
-        Some([2.0, 3.0, 4.0])
-        >>> traverse_options([4, -1, 16], safe_sqrt)
-        Nothing
+        ```python
+        def safe_sqrt(x: float) -> Option[float]:
+            return Some(x ** 0.5) if x >= 0 else NOTHING
+
+        traverse_options([4, 9, 16], safe_sqrt)  # Some([2.0, 3.0, 4.0])
+        traverse_options([4, -1, 16], safe_sqrt)  # Nothing
+        ```
     """
     return sequence_options(fn(item) for item in items)
 
@@ -598,10 +601,10 @@ def from_nullable(value: T | None) -> Some[T] | _NothingType:
         Some(value) if value is not None, otherwise Nothing.
 
     Example:
-        >>> from_nullable(42)
-        Some(42)
-        >>> from_nullable(None)
-        Nothing
+        ```python
+        from_nullable(42)    # Some(42)
+        from_nullable(None)  # Nothing
+        ```
     """
     if value is None:
         return NOTHING
@@ -623,11 +626,14 @@ def is_some(option: Some[T] | _NothingType) -> TypeIs[Some[T]]:
         True if option is Some, with the type narrowed to Some[T].
 
     Example:
-        >>> from unwrappy import Option, Some, Nothing, is_some
-        >>> def get_value(opt: Option[int]) -> int:
-        ...     if is_some(opt):
-        ...         return opt.unwrap()  # Type checker knows opt is Some[int]
-        ...     return 0
+        ```python
+        from unwrappy import Option, Some, Nothing, is_some
+
+        def get_value(opt: Option[int]) -> int:
+            if is_some(opt):
+                return opt.unwrap()  # Type checker knows opt is Some[int]
+            return 0
+        ```
     """
     return isinstance(option, Some)
 
@@ -647,10 +653,13 @@ def is_nothing(option: Some[T] | _NothingType) -> TypeIs[_NothingType]:
         True if option is Nothing, with the type narrowed to _NothingType.
 
     Example:
-        >>> from unwrappy import Option, Some, Nothing, is_nothing
-        >>> def describe(opt: Option[int]) -> str:
-        ...     if is_nothing(opt):
-        ...         return "empty"  # Type checker knows opt is Nothing
-        ...     return "has value"
+        ```python
+        from unwrappy import Option, Some, Nothing, is_nothing
+
+        def describe(opt: Option[int]) -> str:
+            if is_nothing(opt):
+                return "empty"  # Type checker knows opt is Nothing
+            return "has value"
+        ```
     """
     return isinstance(option, _NothingType)
