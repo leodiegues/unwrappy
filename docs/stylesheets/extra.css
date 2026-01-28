@@ -286,10 +286,10 @@
 }
 
 /* ==========================================================================
-   Header - Dark brown like active tab
+   Header - Dark brown, same in both light and dark modes
    ========================================================================== */
 
-/* Unified top bar for both light and dark mode */
+/* Header background - always dark brown */
 .md-header {
   background-color: #2a2722;
 }
@@ -298,16 +298,27 @@
   background-color: #2a2722;
 }
 
+/* Tab links - cream for visibility on dark header */
 .md-tabs__link {
   color: #d2ccb8;
 }
 
-.md-tabs__link--active,
-.md-tabs__link:hover {
+/* Active/hover tabs - brighter cream, NOT accent color */
+/* Material uses .md-tabs__item--active on parent <li>, not on the <a> tag */
+[data-md-color-scheme="solarized-light"][data-md-color-primary] .md-tabs__item--active .md-tabs__link,
+[data-md-color-scheme="solarized-light"][data-md-color-primary] .md-tabs__link:hover,
+[data-md-color-scheme="slate"][data-md-color-primary] .md-tabs__item--active .md-tabs__link,
+[data-md-color-scheme="slate"][data-md-color-primary] .md-tabs__link:hover {
   color: #ebe6d6;
 }
 
-/* Header text and icons - same for both modes */
+/* Active tab underline - coral accent */
+[data-md-color-scheme="solarized-light"][data-md-color-primary] .md-tabs__item--active .md-tabs__link,
+[data-md-color-scheme="slate"][data-md-color-primary] .md-tabs__item--active .md-tabs__link {
+  border-bottom: 2px solid #d4836a;
+}
+
+/* Header text and icons */
 .md-header__title,
 .md-header__topic,
 .md-header__ellipsis,
@@ -321,14 +332,16 @@
   fill: #ebe6d6;
 }
 
-.md-header__option,
-.md-header__button:hover {
-  color: #d4836a;
-}
-
+/* Header title styling */
 .md-header__title {
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+
+/* Header button hover - coral accent */
+.md-header__option,
+.md-header__button:hover {
+  color: #d4836a;
 }
 
 /* Search bar - same for both modes */
@@ -348,16 +361,6 @@
 .md-nav__link--active,
 .md-nav__link:hover {
   color: var(--md-accent-fg-color);
-}
-
-.md-tabs__link--active,
-.md-tabs__link:hover {
-  color: var(--md-accent-fg-color);
-}
-
-/* Active tab styling */
-.md-tabs__link--active {
-  border-bottom: 2px solid var(--md-accent-fg-color);
 }
 
 /* ==========================================================================
