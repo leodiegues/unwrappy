@@ -1,4 +1,4 @@
-.DEFAULT_GOAL := all
+.DEFAULT_GOAL := help
 
 .PHONY: .uv
 .uv: ## Check that uv is installed
